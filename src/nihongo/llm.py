@@ -26,18 +26,51 @@ class LLMError(RuntimeError):
         self.code = code
 
 
-def _error_code(resp: httpx.Response) -> str:
+def _error_info(resp: httpx.Response) -> tuple[str, str, str]:
+    """从网关错误里取出 (code, message, param)，兼容外层再包一层的格式。"""
     try:
-        err = resp.json().get("error", {})
+        body = resp.json()
     except ValueError:
+        return "", resp.text[:200], ""
+    err = body.get("error", body) if isinstance(body, dict) else {}
+    if not isinstance(err, dict):
+        return "", str(err)[:200], ""
+    message = str(err.get("message") or "")
+    # 例如 "code: unsupported_value; message: Unsupported value: ..."
+    m = re.match(r"code:\s*([\w-]+);\s*message:\s*(.*)", message, re.DOTALL)
+    code = str(err.get("code") or err.get("type") or "")
+    if m:
+        code, message = m.group(1), m.group(2)
+    return code, message.strip()[:300], str(err.get("param") or "")
+
+
+# 推理类模型常见的不支持参数：遇到后去掉（或改名）重试，并记住这个模型
+_OPTIONAL_PARAMS = ("temperature", "max_tokens", "top_p")
+
+
+def _rejected_param(resp: httpx.Response, payload: dict[str, Any]) -> str:
+    """网关因为某个可选参数拒绝请求时，返回该参数名。"""
+    if resp.status_code < 400:
         return ""
-    return str(err.get("code") or err.get("type") or "") if isinstance(err, dict) else ""
+    code, message, param = _error_info(resp)
+    text = f"{code} {message} {resp.text[:1000]}".lower()
+    if not any(k in text for k in ("unsupported", "not support", "not allowed")):
+        return ""
+    removable = [*_OPTIONAL_PARAMS, "max_completion_tokens"]
+    if param in removable and param in payload:
+        return param
+    for name in removable:
+        if name in payload and any(f"{q}{name}{q}" in text for q in ("'", '"', "`")):
+            return name
+    return ""
 
 
 class LLMClient:
     def __init__(self, settings: Settings, transport: httpx.BaseTransport | None = None):
         self.settings = settings
         self._transport = transport
+        # 模型 -> 已知不支持的参数
+        self._unsupported: dict[str, set[str]] = {}
 
     def _url(self) -> str:
         base = self.settings.base_url
@@ -66,20 +99,25 @@ class LLMClient:
         if not self.settings.configured:
             raise LLMError("模型尚未配置：请设置 NIHONGO_TEXT_BASE_URL 和 NIHONGO_TEXT_API_KEY")
         model = self.settings.models[role]
-        payload = {
+        label = ROLE_LABELS.get(role, role)
+        payload: dict[str, Any] = {
             "model": model,
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
-        try:
-            with httpx.Client(timeout=self.settings.timeout, transport=self._transport) as client:
-                resp = client.post(self._url(), headers=self._headers(), json=payload)
-        except httpx.HTTPError as exc:
-            raise LLMError(f"无法连接模型网关：{exc}") from exc
+        skip = self._unsupported.setdefault(model, set())
+        self._strip(payload, skip)
+
+        for _ in range(len(_OPTIONAL_PARAMS) + 2):
+            resp = self._post(payload)
+            param = _rejected_param(resp, payload)
+            if not param:
+                break
+            skip.add(param)
+            self._strip(payload, skip)
         if resp.status_code >= 400:
-            code = _error_code(resp)
-            label = ROLE_LABELS.get(role, role)
+            code, message, _ = _error_info(resp)
             if code == "model_forbidden" or "model not allowed" in resp.text:
                 raise LLMError(
                     f"这个 Key 没有权限使用模型「{model}」（用于{label}）。"
@@ -88,17 +126,42 @@ class LLMClient:
                     code="model_forbidden",
                 )
             raise LLMError(
-                f"模型「{model}」（{label}）请求失败，网关返回 {resp.status_code}：{resp.text[:300]}",
+                f"模型「{model}」（{label}）请求失败（{resp.status_code}）：{message or resp.text[:200]}",
                 model=model,
                 code=code,
             )
         try:
-            content = resp.json()["choices"][0]["message"]["content"]
-        except (KeyError, IndexError, ValueError) as exc:
-            raise LLMError(f"无法解析模型返回：{resp.text[:300]}") from exc
+            choice = resp.json()["choices"][0]
+            content = choice["message"].get("content")
+        except (KeyError, IndexError, ValueError, AttributeError) as exc:
+            raise LLMError(
+                f"模型「{model}」的返回无法解析：{resp.text[:200]}", model=model
+            ) from exc
         if isinstance(content, list):  # 某些适配器返回内容块列表
             content = "".join(part.get("text", "") for part in content if isinstance(part, dict))
+        if not content and choice.get("finish_reason") == "length":
+            raise LLMError(
+                f"模型「{model}」在输出前就用完了长度上限（推理模型会先消耗思考用的 token），"
+                "可以在设置里换一个非推理模型。",
+                model=model,
+                code="length",
+            )
         return content or ""
+
+    @staticmethod
+    def _strip(payload: dict[str, Any], skip: set[str]) -> None:
+        for name in skip:
+            value = payload.pop(name, None)
+            # 推理模型通常要求用 max_completion_tokens 代替 max_tokens
+            if name == "max_tokens" and value is not None and "max_completion_tokens" not in skip:
+                payload["max_completion_tokens"] = value * 4
+
+    def _post(self, payload: dict[str, Any]) -> httpx.Response:
+        try:
+            with httpx.Client(timeout=self.settings.timeout, transport=self._transport) as client:
+                return client.post(self._url(), headers=self._headers(), json=payload)
+        except httpx.HTTPError as exc:
+            raise LLMError(f"无法连接模型网关：{exc}") from exc
 
     def list_models(self) -> list[str]:
         """尝试读取网关的 GET /v1/models；网关不支持时返回空列表。"""
