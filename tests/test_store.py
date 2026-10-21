@@ -43,7 +43,50 @@ def test_again_card_comes_back(store):
 
 def test_add_card_and_kana_stats(store):
     cid = store.add_card("猫", "ねこ", "猫")["id"]
-    assert any(c["id"] == cid and c["source"] == "user" for c in store.list_cards())
+    assert store.get_card(cid)["source"] == "user"
+    assert store.list_cards(level="user")["total"] == 1
     store.record_kana("あ", True)
     store.record_kana("あ", False)
     assert store.kana_stats()["あ"] == {"correct": 1, "wrong": 1}
+
+
+def test_jlpt_vocab_seeded_with_levels(store):
+    ov = store.overview()
+    assert ov["levels"]["N5"]["total"] > 700
+    assert ov["levels"]["N1"]["total"] > 2000
+    # 手工整理的中文入门词优先出现
+    first = store.due_cards(limit=3, new_per_day=3)
+    assert [c["word"] for c in first] == ["こんにちは", "おはよう", "こんばんは"]
+    assert all(c["meaning"] for c in first)
+    n3 = store.due_cards(limit=2, new_per_day=2, levels=["N3"])
+    assert all(c["level"] == "N3" and c["meaning_en"] for c in n3)
+
+
+def test_imported_words_come_first(store):
+    store.import_cards([("林檎", "りんご", "苹果"), ("蜜柑", "みかん", "橘子")])
+    assert [c["word"] for c in store.due_cards(limit=2, new_per_day=2)] == ["林檎", "蜜柑"]
+
+
+def test_translation_cache(store):
+    card = store.list_cards(level="N4", limit=1)["items"][0]
+    assert store.untranslated([card["id"]])
+    store.set_meanings({card["id"]: "中文"})
+    assert not store.untranslated([card["id"]])
+    assert store.get_card(card["id"])["meaning"] == "中文"
+
+
+def test_reopen_keeps_progress(tmp_path):
+    from nihongo.store import Store
+
+    s = Store(tmp_path / "p.db")
+    cid = s.due_cards(limit=1)[0]["id"]
+    s.review(cid, "good")
+    s2 = Store(tmp_path / "p.db")
+    assert s2.get_card(cid)["introduced"] == 1
+
+
+def test_lessons_roundtrip(store):
+    store.save_lesson("wa-desu", {"title": "x", "examples": [{"ja": "a", "zh": "b"}]})
+    store.complete_lesson("wa-desu", 75)
+    assert store.lesson_states()["wa-desu"]["quiz_score"] == 75
+    assert store.overview()["lessons_done"] == 1

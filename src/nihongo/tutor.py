@@ -78,7 +78,7 @@ def explain_grammar(llm: LLMClient, point: dict, question: str, level: str) -> d
 }}
 examples 给 3 个，quiz 给 2 道，answer 是正确选项的下标。"""
     user = (
-        f"语法点：{point['title']}\n已有讲解：{point['explanation']}\n\n"
+        f"语法点：{point['title']}\n已有讲解：{point.get('explanation', '')}\n\n"
         f"学生的问题：{question or '请再详细讲一讲这个语法点，并多给几个生活中的例句。'}"
     )
     return llm.chat_json(
@@ -132,6 +132,58 @@ def assess_pronunciation(llm: LLMClient, target: str, reading: str, audio: bytes
 特别留意中国学生常见问题：长音和促音（っ）的长度、清浊音（か／が、た／だ）、「つ」「す」「ら行」的发音、语调是否平。
 如果录音没有人声或完全听不清，score 为 0，并在 summary 里说明。"""
     return llm.audio_json(prompt, audio, system=system)
+
+
+def translate_meanings(llm: LLMClient, items: list[dict]) -> dict[int, str]:
+    """把词表的英文释义批量翻成简洁的中文释义。"""
+    if not items:
+        return {}
+    lines = "\n".join(
+        f"{it['id']}\t{it['word']}（{it['reading']}）\t{it['meaning_en']}" for it in items
+    )
+    system = """你是日中词典编辑。根据日语单词、读音和英文释义，给出简洁准确的中文释义，
+多个义项用「；」分隔，不超过 20 个字，不要解释。只输出 JSON：{"<id>": "中文释义", ...}"""
+    data = llm.chat_json(
+        [{"role": "system", "content": system}, {"role": "user", "content": lines}],
+        role="fast",
+        temperature=0.2,
+        max_tokens=60 * len(items) + 100,
+    )
+    out = {}
+    for key, value in data.items():
+        try:
+            out[int(key)] = str(value)
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def generate_lesson(llm: LLMClient, point: dict, level: str, known_titles: list[str]) -> dict:
+    """为语法大纲里的一课生成完整内容。"""
+    system = f"""你是日语老师，为母语是中文的学生编写一节语法课。学生水平：{LEVELS.get(level, LEVELS["zero"])}。
+讲解用中文，简明具体，多和中文对比，例句只用 {point["level"]} 及以下的词汇，用礼貌体。{RUBY_RULE}
+只输出 JSON：
+{{
+  "title": "语法点名称（日语句型）",
+  "summary": "一句话说明用途",
+  "structure": "接续方式，例如「名词 ＋ は ＋ 名词 ＋ です」",
+  "explanation": "中文讲解，3–6 句",
+  "examples": [{{"ja": "例句（带读音标注）", "zh": "中文翻译"}}],
+  "pitfalls": ["中国学生容易犯的错，一条一句"],
+  "quiz": [{{"question": "练习题（中文题干，可含带读音标注的日语）", "options": ["选项"], "answer": 0, "why": "解析"}}],
+  "speaking": [{{"ja": "适合朗读练习的短句（带读音标注）", "zh": "中文翻译"}}],
+  "words": [{{"word": "课里出现的重点单词", "reading": "读音", "meaning": "中文意思"}}]
+}}
+examples 5 个，由易到难；pitfalls 2–3 条；quiz 4 道，每道 3–4 个选项；speaking 3 句；words 最多 6 个。"""
+    context = "、".join(known_titles[-8:]) or "（这是第一课）"
+    user = (
+        f"本课：{point['title']}（{point['level']}）\n要点：{point['summary']}\n"
+        f"学生之前学过：{context}"
+    )
+    return llm.chat_json(
+        [{"role": "system", "content": system}, {"role": "user", "content": user}],
+        max_tokens=2600,
+    )
 
 
 def ping(llm: LLMClient) -> str:

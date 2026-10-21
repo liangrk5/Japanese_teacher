@@ -5,7 +5,8 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const view = $("#view");
 
-const PREF_DEFAULTS = { level: "zero", furigana: true, translation: true, ttsRate: 0.85, theme: "auto", newPerDay: 10 };
+const PREF_DEFAULTS = { level: "zero", furigana: true, translation: true, ttsRate: 0.85, theme: "auto", newPerDay: 10, levels: ["N5"] };
+const LEVELS = ["N5", "N4", "N3", "N2", "N1"];
 const prefs = (() => {
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem("nihongo.prefs") || "{}"); } catch { /* 隐私模式 */ }
@@ -114,16 +115,17 @@ views.home = async (el) => {
   const greet = hour < 11 ? "おはようございます" : hour < 18 ? "こんにちは" : "こんばんは";
   const greetZh = hour < 11 ? "早上好" : hour < 18 ? "你好" : "晚上好";
 
-  const step = seionMastered < kanaTotal * 0.8 ? 1 : p.cards_learned < 30 ? 2 : p.cards_learned < 80 ? 3 : 4;
+  const lv = prefs.levels.map((l) => p.levels[l] || { total: 0, learned: 0 }).reduce((a, b) => ({ total: a.total + b.total, learned: a.learned + b.learned }), { total: 0, learned: 0 });
+  const step = seionMastered < kanaTotal * 0.8 ? 1 : p.cards_learned < 30 ? 2 : p.lessons_done < 5 ? 3 : 4;
   const steps = [
     ["あ", "认识五十音", `清音已掌握 ${seionMastered} / ${kanaTotal}`, "#/kana"],
-    ["単", "每天记新单词", `已学 ${p.cards_learned} / ${p.cards_total} 个`, "#/words"],
-    ["文", "学基础语法", "从「〜は〜です」开始", "#/grammar"],
+    ["単", "每天记新单词", `${prefs.levels.join("、")} 已学 ${lv.learned} / ${lv.total} 个`, "#/words"],
+    ["文", "学语法", `已学完 ${p.lessons_done} 课，从「〜は〜です」开始`, "#/grammar"],
     ["話", "和 AI 老师对话", "自我介绍、点餐、问路", "#/tutor"],
   ];
 
   // 最近 30 天学习热力
-  const byDay = Object.fromEntries(p.activity.map((d) => [d.day, d.reviews + d.kana + d.chats * 3]));
+  const byDay = Object.fromEntries(p.activity.map((d) => [d.day, d.reviews + d.kana + d.chats * 3 + (d.lessons || 0) * 10]));
   const cells = [];
   for (let i = 29; i >= 0; i--) {
     const d = new Date(); d.setDate(d.getDate() - i);
@@ -166,8 +168,8 @@ views.home = async (el) => {
         <div class="heat">${cells.join("")}</div>
         <h3 style="margin:24px 0 8px">清音进度</h3>
         <div class="progress matcha"><i style="width:${(seionMastered / kanaTotal) * 100}%"></i></div>
-        <h3 style="margin:18px 0 8px">基础单词进度</h3>
-        <div class="progress"><i style="width:${(p.cards_learned / Math.max(1, p.cards_total)) * 100}%"></i></div>
+        ${LEVELS.filter((l) => p.levels[l]).map((l) => `<div class="row" style="margin:16px 0 6px"><h3>${l} 单词</h3><span class="spacer"></span><span class="muted small">${p.levels[l].learned} / ${p.levels[l].total}</span></div>
+          <div class="progress"><i style="width:${(p.levels[l].learned / Math.max(1, p.levels[l].total)) * 100}%"></i></div>`).join("")}
         ${aiReady() ? "" : `<div style="margin-top:20px">${aiMissing()}</div>`}
       </section>
     </div>`;
@@ -325,7 +327,7 @@ views.words = async (el) => {
   async function render() {
     el.innerHTML = `
       <div class="page-head">
-        <div><div class="eyebrow">STEP 2</div><h1>单词</h1><p>按遗忘曲线安排复习：记得越牢，下次出现得越晚。</p></div>
+        <div><div class="eyebrow">STEP 2</div><h1>单词</h1><p>JLPT ${prefs.levels.join("、")} 词表，按遗忘曲线安排复习：记得越牢，下次出现得越晚。</p></div>
         <div class="seg">
           <button data-tab="review" class="${tab === "review" ? "on" : ""}">今日复习</button>
           <button data-tab="list" class="${tab === "list" ? "on" : ""}">单词本</button>
@@ -337,7 +339,16 @@ views.words = async (el) => {
   }
 
   async function review(body) {
-    const queue = await api(`/api/cards/due?limit=30&new_per_day=${prefs.newPerDay}`);
+    const queue = await api(`/api/cards/due?limit=30&new_per_day=${prefs.newPerDay}&levels=${prefs.levels.join(",")}`);
+    // 词表只有英文释义的词，后台批量翻成中文
+    const missing = queue.filter((c) => !c.meaning && c.meaning_en).map((c) => c.id);
+    let translating = aiReady() && missing.length > 0;
+    if (translating) {
+      api("/api/cards/translate", { json: { ids: missing } })
+        .then((m) => queue.forEach((c) => { if (m[c.id]) c.meaning = m[c.id]; }))
+        .catch(() => {})
+        .finally(() => { translating = false; if (flipped && body.isConnected) card(); });
+    }
     let i = 0, flipped = false, done = 0;
     if (!queue.length) {
       body.innerHTML = `<div class="card empty"><div class="big jp">完了</div><p>今天的单词都复习完了，明天再来！</p>
@@ -366,12 +377,12 @@ views.words = async (el) => {
           <div class="row" style="margin-bottom:10px"><span class="muted small">${i + 1} / ${queue.length}</span><span class="spacer"></span>
             <div class="progress" style="width:200px"><i style="width:${(i / queue.length) * 100}%"></i></div></div>
           <div class="flash" id="flash">
-            <span class="chip topic">${esc(c.topic)}</span>
+            <span class="chip topic">${c.source === "user" ? "我的单词" : esc(c.level === c.topic || !c.topic ? c.level : `${c.level} · ${c.topic}`)}</span>
             ${c.is_new ? `<span class="chip shu new">新词</span>` : ""}
             <div class="w jp">${esc(c.word)}</div>
             ${flipped ? `
               ${showReading ? `<div class="rd jp">${esc(c.reading)}</div>` : ""}
-              <div class="mn">${esc(c.meaning)}</div>
+              <div class="mn">${c.meaning ? esc(c.meaning) : `${esc(c.meaning_en)}${translating ? `<div class="muted small">${loading("翻译成中文")}</div>` : ""}`}</div>
               <div class="row" style="margin-top:10px">${speakBtn(c.reading, "btn sm")}
                 <button class="btn sm" id="ex">${ex ? "换个例句" : "AI 例句"}</button></div>
               <div id="exbox" class="ex" ${ex ? "" : "hidden"}>${ex ? exampleHtml(ex) : ""}</div>`
@@ -415,37 +426,69 @@ views.words = async (el) => {
   }
 
   async function list(body) {
-    const cards = await api("/api/cards");
-    const topics = [...new Set(cards.map((c) => c.topic))];
+    const f = { level: "", status: "", q: "", offset: 0 };
     body.innerHTML = `
-      <div class="card" style="margin-bottom:16px">
-        <h3 style="margin-bottom:12px">添加我的单词</h3>
-        <form id="add" class="grid cols-4" style="align-items:end">
-          <label class="field">单词<input class="input" name="word" required placeholder="例：猫"></label>
-          <label class="field">读音（假名）<input class="input" name="reading" required placeholder="ねこ"></label>
-          <label class="field">中文意思<input class="input" name="meaning" required placeholder="猫"></label>
-          <button class="btn primary">加入复习</button>
-        </form>
+      <div class="grid cols-2" style="margin-bottom:16px">
+        <div class="card">
+          <h3 style="margin-bottom:12px">添加单词</h3>
+          <form id="add" class="grid" style="gap:10px">
+            <div class="grid cols-3" style="gap:8px">
+              <input class="input" name="word" required placeholder="单词，例：猫">
+              <input class="input" name="reading" required placeholder="读音：ねこ">
+              <input class="input" name="meaning" required placeholder="意思：猫">
+            </div>
+            <div><button class="btn primary">加入复习</button></div>
+          </form>
+        </div>
+        <div class="card">
+          <h3 style="margin-bottom:6px">批量导入</h3>
+          <p class="muted small" style="margin:0 0 10px">支持 CSV、TSV 和 Anki 导出的纯文本。每行：单词, 读音, 意思（或 单词, 意思）。导入的词会优先出现在新词里。</p>
+          <div class="row"><label class="btn"><input type="file" id="file" accept=".csv,.tsv,.txt" hidden>选择文件</label>
+            <span class="muted small" id="imp"></span></div>
+        </div>
       </div>
-      <div class="row" style="margin-bottom:10px"><select class="input" id="topic" style="width:auto">
-        <option value="">全部主题（${cards.length}）</option>${topics.map((t) => `<option>${esc(t)}</option>`).join("")}</select></div>
+      <div class="row" style="margin-bottom:10px">
+        <select class="input" id="f-level" style="width:auto"><option value="">全部级别</option>${LEVELS.map((l) => `<option>${l}</option>`).join("")}<option value="user">我的单词</option></select>
+        <select class="input" id="f-status" style="width:auto"><option value="">全部状态</option><option value="new">未学</option><option value="learning">学习中</option><option value="mature">牢固</option></select>
+        <input class="input" id="f-q" placeholder="搜索单词、读音或意思" style="flex:1;min-width:160px">
+        <span class="muted small" id="count"></span>
+      </div>
       <div class="card table-wrap" style="padding:6px 10px"><table class="word-table"><thead><tr>
-        <th>单词</th><th>读音</th><th>意思</th><th>状态</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>`;
+        <th>单词</th><th>读音</th><th>意思</th><th>级别</th><th>状态</th><th></th></tr></thead><tbody id="rows"></tbody></table>
+        <div style="text-align:center;padding:10px"><button class="btn sm" id="more" hidden>加载更多</button></div></div>`;
     const rows = $("#rows");
-    const draw = () => {
-      const t = $("#topic").value;
-      rows.innerHTML = cards.filter((c) => !t || c.topic === t).map((c) => `<tr>
-        <td class="w">${esc(c.word)}</td><td class="jp">${esc(c.reading)}</td><td>${esc(c.meaning)}</td>
+    async function load(reset = true) {
+      if (reset) { f.offset = 0; rows.innerHTML = ""; }
+      const qs = new URLSearchParams({ level: f.level, status: f.status, q: f.q, limit: 100, offset: f.offset });
+      const d = await api(`/api/cards?${qs}`);
+      $("#count").textContent = `${d.total} 个`;
+      rows.insertAdjacentHTML("beforeend", d.items.map((c) => `<tr>
+        <td class="w">${esc(c.word)}</td><td class="jp">${esc(c.reading)}</td>
+        <td>${c.meaning ? esc(c.meaning) : `<span class="muted">${esc(c.meaning_en)}</span>`}</td>
+        <td>${c.source === "user" ? `<span class="chip shu">我的</span>` : `<span class="chip">${esc(c.level)}</span>`}</td>
         <td>${!c.introduced ? `<span class="chip">未学</span>` : c.interval_days >= 21 ? `<span class="chip matcha">牢固</span>` : `<span class="chip ai">学习中 · ${fmtInterval(c.interval_days)}</span>`}</td>
-        <td>${speakBtn(c.reading)}</td></tr>`).join("");
-    };
-    $("#topic").onchange = draw; draw();
+        <td>${speakBtn(c.reading)}</td></tr>`).join(""));
+      f.offset += d.items.length;
+      $("#more").hidden = f.offset >= d.total;
+    }
+    $("#more").onclick = () => load(false);
+    $("#f-level").onchange = (e) => { f.level = e.target.value; load(); };
+    $("#f-status").onchange = (e) => { f.status = e.target.value; load(); };
+    let t = 0;
+    $("#f-q").oninput = (e) => { clearTimeout(t); t = setTimeout(() => { f.q = e.target.value.trim(); load(); }, 250); };
     $("#add").onsubmit = async (e) => {
       e.preventDefault();
-      const f = new FormData(e.target);
-      try { await api("/api/cards", { json: Object.fromEntries(f) }); toast("已加入单词本"); list(body); }
+      try { await api("/api/cards", { json: Object.fromEntries(new FormData(e.target)) }); toast("已加入单词本"); e.target.reset(); load(); }
       catch (err) { toast(err.message); }
     };
+    $("#file").onchange = async (e) => {
+      const file = e.target.files[0]; if (!file) return;
+      $("#imp").innerHTML = loading("导入中");
+      try { const d = await api("/api/cards/import", { json: { text: await file.text() } }); $("#imp").textContent = `已导入 ${d.imported} 个单词`; f.level = "user"; $("#f-level").value = "user"; load(); }
+      catch (err) { $("#imp").textContent = err.message; }
+      e.target.value = "";
+    };
+    load();
   }
 
   let cleanupWords = null;
@@ -455,68 +498,145 @@ views.words = async (el) => {
 
 // ---------- 语法 ----------
 views.grammar = async (el) => {
-  const points = await api("/api/grammar");
-  let current = points[0].id;
-  try { current = sessionStorage.getItem("grammar.cur") || current; } catch { /* 忽略 */ }
-  if (!points.find((p) => p.id === current)) current = points[0].id;
+  await loadStatus();
+  let points = await api("/api/lessons");
+  let current = null;
+  try { current = sessionStorage.getItem("grammar.cur"); } catch { /* 忽略 */ }
+  if (!points.find((p) => p.id === current)) current = (points.find((p) => !p.completed) || points[0]).id;
+  let levelTab = points.find((p) => p.id === current).level;
+  const levels = [...new Set(points.map((p) => p.level))];
 
   el.innerHTML = `
-    <div class="page-head"><div><div class="eyebrow">STEP 3</div><h1>语法</h1><p>入门必学的 ${points.length} 个句型。看不懂可以直接问 AI 老师。</p></div></div>
+    <div class="page-head"><div><div class="eyebrow">STEP 3</div><h1>语法</h1>
+      <p>按 JLPT 大纲排好的 ${points.length} 课。打开一课时 AI 老师会现场编写讲解、例句和练习，保存在本机，以后可以离线复习。</p></div></div>
     <div class="g-layout">
-      <div class="g-list" id="glist"></div>
+      <div><div class="seg" id="glevels" style="margin-bottom:10px"></div><div class="g-list" id="glist"></div></div>
       <div id="gdetail"></div>
     </div>`;
   const drawList = () => {
-    $("#glist").innerHTML = points.map((p, i) => `<button class="g-item ${p.id === current ? "on" : ""}" data-id="${p.id}">
-      <span class="n">${String(i + 1).padStart(2, "0")}</span><span><div class="t">${esc(p.title)}</div><div class="s">${esc(p.summary)}</div></span></button>`).join("");
-    $$(".g-item", el).forEach((b) => b.onclick = () => { current = b.dataset.id; sessionStorage.setItem("grammar.cur", current); drawList(); drawDetail(); if (innerWidth < 900) $("#gdetail").scrollIntoView({ behavior: "smooth" }); });
+    $("#glevels").innerHTML = levels.map((lv) => {
+      const ps = points.filter((p) => p.level === lv);
+      return `<button data-lv="${lv}" class="${lv === levelTab ? "on" : ""}">${lv} <small class="muted">${ps.filter((p) => p.completed).length}/${ps.length}</small></button>`;
+    }).join("");
+    $$("[data-lv]", el).forEach((b) => b.onclick = () => { levelTab = b.dataset.lv; drawList(); });
+    const ps = points.filter((p) => p.level === levelTab);
+    $("#glist").innerHTML = ps.map((p, i) => `<button class="g-item ${p.id === current ? "on" : ""} ${p.completed ? "done" : ""}" data-id="${p.id}">
+      <span class="n">${p.completed ? "✓" : String(i + 1).padStart(2, "0")}</span><span><div class="t">${esc(p.title)}</div><div class="s">${esc(p.summary)}${p.ready && !p.completed ? " · 已备课" : ""}</div></span></button>`).join("");
+    $$(".g-item", el).forEach((b) => b.onclick = () => { current = b.dataset.id; try { sessionStorage.setItem("grammar.cur", current); } catch { /* 忽略 */ } drawList(); drawDetail(); if (innerWidth < 900) $("#gdetail").scrollIntoView({ behavior: "smooth" }); });
   };
-  const drawDetail = () => {
-    const p = points.find((x) => x.id === current);
+
+  async function drawDetail(force = false) {
+    const id = current;
     const box = $("#gdetail");
+    const point = points.find((p) => p.id === id);
+    box.innerHTML = `<article class="card"><div class="g-title">${esc(point.title)}</div><p class="muted">${esc(point.summary)}</p><div style="margin-top:20px">${loading("读取课程")}</div></article>`;
+    let data;
+    try {
+      data = await api(`/api/lessons/${id}`);
+      if (!data.lesson || force) {
+        if (!aiReady()) { box.querySelector("div[style]").innerHTML = aiMissing(); return; }
+        box.querySelector("div[style]").innerHTML = loading("AI 老师正在备课，大约需要十几秒");
+        data = await api(`/api/lessons/${id}/generate${force ? "?force=true" : ""}`, { json: { level: prefs.level } });
+        point.ready = true;
+      }
+    } catch (err) {
+      if (current === id) box.innerHTML = `<article class="card"><div class="g-title">${esc(point.title)}</div><div class="notice err" style="margin-top:14px">${esc(err.message)}</div>
+        <button class="btn" style="margin-top:12px" id="retry">重试</button></article>`;
+      $("#retry") && ($("#retry").onclick = () => drawDetail(force));
+      return;
+    }
+    if (current !== id) return;
+    renderLesson(box, point, data.lesson);
+  }
+
+  function renderLesson(box, point, lesson) {
+    const c = lesson.content;
+    const quiz = c.quiz || [];
     box.innerHTML = `<article class="card">
-      <div class="g-title">${esc(p.title)}</div>
-      <p class="muted" style="margin:4px 0 16px">${esc(p.summary)}</p>
-      <p style="margin:0 0 18px">${esc(p.explanation)}</p>
+      <div class="row"><span class="chip">${esc(point.level)}</span>${lesson.source === "builtin" ? `<span class="chip">内置</span>` : `<span class="chip ai">AI 编写</span>`}
+        ${point.completed ? `<span class="chip matcha">已学完${point.score != null ? ` · 练习 ${point.score} 分` : ""}</span>` : ""}<span class="spacer"></span>
+        <button class="btn sm ghost" id="regen" title="让 AI 重新编写这一课">↻ 重新生成</button></div>
+      <div class="g-title" style="margin-top:8px">${ruby(c.title || point.title)}</div>
+      <p class="muted" style="margin:4px 0 16px">${ruby(c.summary || point.summary)}</p>
+      ${c.structure ? `<div class="structure jp">${ruby(c.structure)}</div>` : ""}
+      <p class="prose" style="margin:0 0 18px">${ruby(c.explanation || "")}</p>
       <h3 style="margin-bottom:10px">例句</h3>
-      <div class="grid" style="gap:10px">${p.examples.map((x) => exampleBlock(x)).join("")}</div>
-      <h3 style="margin:24px 0 10px">问 AI 老师</h3>
+      <div class="grid" style="gap:10px">${(c.examples || []).map(exampleBlock).join("")}</div>
+      ${(c.pitfalls || []).length ? `<h3 style="margin:22px 0 8px">⚠ 容易犯的错</h3><ul style="margin:0;padding-left:20px">${c.pitfalls.map((x) => `<li>${ruby(x)}</li>`).join("")}</ul>` : ""}
+      ${(c.words || []).length ? `<h3 style="margin:22px 0 8px">本课单词</h3><div class="words">${c.words.map(wordPill).join("")}</div>` : ""}
+      ${quiz.length ? `<h3 style="margin:22px 0 8px">练习 <span class="muted small" id="qscore"></span></h3>${quizHtml(quiz)}` : ""}
+      ${(c.speaking || []).length ? `<h3 style="margin:22px 0 8px">朗读练习</h3><div class="grid" style="gap:8px">${c.speaking.map(exampleBlock).join("")}</div>
+        <a class="btn sm" style="margin-top:10px" href="#/speak">去发音练习录音评测 ›</a>` : ""}
+      <div class="row" style="margin-top:24px"><button class="btn primary" id="done">${point.completed ? "再次标记学完" : "我学会了"}</button>
+        <button class="btn" id="next">下一课 ›</button></div>
+      <h3 style="margin:28px 0 10px">问 AI 老师</h3>
       <form id="ask" class="row">
-        <input class="input" name="q" placeholder="例如：「は」和「が」有什么区别？（留空则让老师再讲一遍）" style="flex:1;min-width:200px">
-        <button class="btn primary">提问</button>
+        <input class="input" name="q" placeholder="例如：「は」和「が」有什么区别？" style="flex:1;min-width:200px">
+        <button class="btn">提问</button>
       </form>
       <div id="answer" style="margin-top:14px"></div>
     </article>`;
+    bindWordPills(box);
+    let answered = 0, right = 0;
+    bindQuiz(box, quiz, (ok) => {
+      answered++; if (ok) right++;
+      $("#qscore").textContent = `${right} / ${answered}`;
+    });
+    $("#regen").onclick = () => drawDetail(true);
+    const nextLesson = () => { const i = points.findIndex((p) => p.id === point.id); return points[i + 1]; };
+    $("#done").onclick = async () => {
+      const score = answered ? Math.round((right / answered) * 100) : null;
+      await api(`/api/lessons/${point.id}/complete`, { json: { score } });
+      point.completed = true; if (score != null) point.score = score;
+      toast("这一课学完了 🎉");
+      const n = nextLesson(); if (n) { current = n.id; levelTab = n.level; }
+      drawList(); drawDetail();
+    };
+    $("#next").onclick = () => { const n = nextLesson(); if (!n) return toast("已经是最后一课"); current = n.id; levelTab = n.level; drawList(); drawDetail(); };
     $("#ask").onsubmit = async (e) => {
       e.preventDefault();
       const out = $("#answer");
       if (!aiReady()) { out.innerHTML = aiMissing(); return; }
       out.innerHTML = loading();
       try {
-        const d = await api(`/api/grammar/${p.id}/explain`, { json: { question: e.target.q.value, level: prefs.level } });
+        const d = await api(`/api/lessons/${point.id}/ask`, { json: { question: e.target.q.value, level: prefs.level } });
         out.innerHTML = `<div class="ai-box"><div class="label">✦ AI 老师</div>
           <div class="prose">${ruby(d.answer)}</div>
           ${(d.examples || []).length ? `<div class="grid" style="gap:8px;margin-top:14px">${d.examples.map(exampleBlock).join("")}</div>` : ""}
           ${(d.pitfalls || []).length ? `<h3 style="margin:16px 0 6px">⚠ 容易犯的错</h3><ul style="margin:0;padding-left:20px">${d.pitfalls.map((x) => `<li>${ruby(x)}</li>`).join("")}</ul>` : ""}
-          ${(d.quiz || []).length ? `<h3 style="margin:16px 0 6px">小练习</h3>${d.quiz.map((q, qi) => `<div class="mini-quiz" data-q="${qi}" style="margin-bottom:12px">
-              <div>${qi + 1}. ${ruby(q.question)}</div>
-              ${(q.options || []).map((o, oi) => `<button class="opt" data-o="${oi}">${ruby(o)}</button>`).join("")}
-              <div class="why muted small" hidden style="margin-top:6px">${ruby(q.why || "")}</div></div>`).join("")}` : ""}
+          ${(d.quiz || []).length ? `<h3 style="margin:16px 0 6px">小练习</h3>${quizHtml(d.quiz)}` : ""}
         </div>`;
-        $$(".mini-quiz", out).forEach((qz) => {
-          const q = d.quiz[Number(qz.dataset.q)];
-          $$(".opt", qz).forEach((b) => b.onclick = () => {
-            $$(".opt", qz).forEach((x, xi) => { x.disabled = true; if (xi === Number(q.answer)) x.classList.add("right"); });
-            if (Number(b.dataset.o) !== Number(q.answer)) b.classList.add("wrong");
-            $(".why", qz).hidden = false;
-          });
-        });
+        bindQuiz(out, d.quiz || []);
       } catch (err) { out.innerHTML = `<div class="notice err">${esc(err.message)}</div>`; }
     };
-  };
+  }
   drawList(); drawDetail();
 };
 const exampleBlock = (x) => `<div class="example">${speakBtn(x.ja)}<div><div class="ja">${ruby(x.ja)}</div><div class="zh">${esc(x.zh)}</div></div></div>`;
+const quizHtml = (quiz) => quiz.map((q, qi) => `<div class="mini-quiz" data-q="${qi}" style="margin-bottom:12px">
+  <div>${qi + 1}. ${ruby(q.question)}</div>
+  ${(q.options || []).map((o, oi) => `<button class="opt" data-o="${oi}">${ruby(o)}</button>`).join("")}
+  <div class="why muted small" hidden style="margin-top:6px">${ruby(q.why || "")}</div></div>`).join("");
+function bindQuiz(root, quiz, onAnswer) {
+  $$(".mini-quiz", root).forEach((qz) => {
+    const q = quiz[Number(qz.dataset.q)];
+    $$(".opt", qz).forEach((b) => b.onclick = () => {
+      const ok = Number(b.dataset.o) === Number(q.answer);
+      $$(".opt", qz).forEach((x, xi) => { x.disabled = true; if (xi === Number(q.answer)) x.classList.add("right"); });
+      if (!ok) b.classList.add("wrong");
+      $(".why", qz).hidden = false;
+      onAnswer && onAnswer(ok);
+    });
+  });
+}
+const wordPill = (w) => `<span class="word-pill"><b>${esc(w.word)}</b><span class="muted">${esc(w.reading)} · ${esc(w.meaning)}</span><button title="加入单词本" data-add='${esc(JSON.stringify(w))}'>＋</button></span>`;
+function bindWordPills(root) {
+  $$("[data-add]", root).forEach((b) => b.onclick = async () => {
+    const w = JSON.parse(b.dataset.add);
+    try { await api("/api/cards", { json: { word: w.word, reading: w.reading || w.word, meaning: w.meaning } }); b.textContent = "✓"; b.disabled = true; toast(`「${w.word}」已加入单词本`); }
+    catch (err) { toast(err.message); }
+  });
+}
 
 // ---------- AI 老师 ----------
 const LEVEL_LABELS = { zero: "零基础", n5: "入门 N5", n4: "初级 N4" };
@@ -657,17 +777,10 @@ views.tutor = async (el) => {
 // ---------- 发音 ----------
 views.speak = async (el) => {
   await loadStatus();
-  const points = await api("/api/grammar");
-  const basics = [
-    { ja: "はじめまして。", zh: "初次见面。" },
-    { ja: "よろしくお願[ねが]いします。", zh: "请多关照。" },
-    { ja: "ありがとうございます。", zh: "谢谢您。" },
-    { ja: "すみません、もう一度[いちど]お願[ねが]いします。", zh: "不好意思，请再说一遍。" },
-  ];
-  const sentences = [...basics, ...points.flatMap((p) => p.examples)];
+  const sentences = await api("/api/sentences");
   let custom = null;
   try { custom = JSON.parse(sessionStorage.getItem("speak.custom") || "null"); } catch { custom = null; }
-  if (custom) sentences.unshift(custom);
+  if (custom) sentences.unshift({ ...custom, source: "句子拆解" });
   let cur = 0;
   let rec = null;
 
@@ -680,10 +793,10 @@ views.speak = async (el) => {
       <div class="card" id="stage"></div>
     </div>`;
   const drawList = () => {
-    $("#slist").innerHTML = sentences.map((s, i) => `<button class="${i === cur ? "on" : ""}" data-i="${i}">${ruby(s.ja)}<small>${esc(s.zh || "")}</small></button>`).join("");
+    $("#slist").innerHTML = sentences.map((s, i) => `${i === 0 || sentences[i - 1].source !== s.source ? `<div class="muted small" style="margin-top:6px">${esc(s.source || "")}</div>` : ""}<button class="${i === cur ? "on" : ""}" data-i="${i}">${ruby(s.ja)}<small>${esc(s.zh || "")}</small></button>`).join("");
     $$("#slist button").forEach((b) => b.onclick = () => { cur = Number(b.dataset.i); drawList(); stage(); });
   };
-  $("#own").onsubmit = (e) => { e.preventDefault(); const t = e.target.t.value.trim(); if (!t) return; sentences.unshift({ ja: t, zh: "" }); cur = 0; e.target.reset(); drawList(); stage(); };
+  $("#own").onsubmit = (e) => { e.preventDefault(); const t = e.target.t.value.trim(); if (!t) return; sentences.unshift({ ja: t, zh: "", source: "自己输入" }); cur = 0; e.target.reset(); drawList(); stage(); };
 
   function stage() {
     const s = sentences[cur];
@@ -800,6 +913,7 @@ views.settings = async (el) => {
         <h2 style="margin-bottom:14px">学习偏好</h2>
         <div class="grid" style="gap:14px">
           <label class="field">我的水平<select class="input" id="p-level">${Object.entries(LEVEL_LABELS).map(([k, v]) => `<option value="${k}" ${k === prefs.level ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+          <div class="field">学习的词表级别<div class="row">${LEVELS.map((l) => `<label class="chip"><input type="checkbox" data-lvl="${l}" ${prefs.levels.includes(l) ? "checked" : ""}> ${l}</label>`).join("")}</div></div>
           <label class="field">每天新单词数<input class="input" id="p-new" type="number" min="0" max="50" value="${prefs.newPerDay}"></label>
           <label class="field">朗读语速：<span id="rate-v">${prefs.ttsRate}</span><input id="p-rate" type="range" min="0.5" max="1.2" step="0.05" value="${prefs.ttsRate}"></label>
           <label class="field">主题<select class="input" id="p-theme">
@@ -836,6 +950,11 @@ views.settings = async (el) => {
       </section>
     </div>`;
   $("#p-level").onchange = (e) => { prefs.level = e.target.value; savePrefs(); toast("已保存"); };
+  $$("[data-lvl]", el).forEach((cb) => cb.onchange = () => {
+    const chosen = $$("[data-lvl]", el).filter((x) => x.checked).map((x) => x.dataset.lvl);
+    if (!chosen.length) { cb.checked = true; toast("至少选一个级别"); return; }
+    prefs.levels = chosen; savePrefs(); toast("已保存");
+  });
   $("#p-new").onchange = (e) => { prefs.newPerDay = Math.max(0, Math.min(50, Number(e.target.value) || 0)); savePrefs(); toast("已保存"); };
   $("#p-rate").oninput = (e) => { prefs.ttsRate = Number(e.target.value); $("#rate-v").textContent = prefs.ttsRate; savePrefs(); };
   $("#p-theme").onchange = (e) => { prefs.theme = e.target.value; savePrefs(); };

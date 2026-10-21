@@ -6,12 +6,22 @@
 | --- | --- |
 | 今日 | 连续学习天数、待复习单词、学习路线和最近 30 天的练习记录 |
 | 假名 | 平假名 / 片假名五十音图（清音、浊音、拗音），点击发音；选行测验，错得多的假名出现得更频繁 |
-| 单词 | 内置 120 个入门词，按简化 SM-2 安排复习，每天新词数可调；AI 生成例句；对话里遇到的词一键加入 |
-| 语法 | 12 个入门句型，带注音例句；可以向 AI 老师追问，并附小练习 |
+| 单词 | JLPT N5–N1 约 8000 词，按简化 SM-2 安排复习，可选级别和每天新词数；英文释义由 AI 翻成中文并缓存；AI 例句；对话和课程里的词一键加入；支持导入 CSV / Anki 词表 |
+| 语法 | N5–N3 共 91 课的大纲，打开一课时 AI 编写讲解、例句、易错点、练习和朗读句，保存在本机可离线复习；可以继续向 AI 老师追问 |
 | AI 老师 | 自由聊天或情景对话（自我介绍、点餐、购物、问路、旅行），回复带注音、罗马音、翻译、纠错和下一句提示；句子拆解逐词讲解 |
-| 发音 | 听示范、录下自己的朗读，音频模型打分并指出具体的音 |
+| 发音 | 句子来自入门句、已学课程和单词例句；听示范、录下自己的朗读，音频模型打分并指出具体的音 |
 
-朗读用系统自带的日语语音（macOS 的 Kyoko 等），不消耗模型调用。学习进度保存在本机 SQLite。
+朗读用系统自带的日语语音（macOS 的 Kyoko 等），不消耗模型调用。学习进度、翻译过的释义和生成的课程都保存在本机 SQLite。
+
+## 学习内容从哪里来
+
+除了假名表，学习内容都是数据而不是代码：
+
+- **单词**：`src/nihongo/data/jlpt_vocab.tsv`，来自开源的 [open-anki-jlpt-decks](https://github.com/jamsinclair/open-anki-jlpt-decks)（MIT，见 [docs/THIRD_PARTY.md](docs/THIRD_PARTY.md)）。另有 120 个手工整理了中文释义的入门词排在最前面。词表释义是英文，复习时由模型批量翻成中文后存进数据库，同一个词只翻一次；没有配置模型时显示英文。
+- **语法**：`src/nihongo/data/grammar_syllabus.json` 只有课程标题和顺序。课程正文第一次打开时由模型生成并缓存，「重新生成」可以换一个版本。其中 12 课有手写的离线内容（`grammar_lessons.json`）。
+- **自己的词**：在「单词本」里手动添加或批量导入，导入的词最先学习。
+
+更新词表或大纲只需替换这些数据文件，已有的学习进度会保留。
 
 ## 安装
 
@@ -51,7 +61,8 @@ AI 功能通过 OpenAI 兼容的 Prism 网关调用。打开应用的「设置 �
 | --- | --- | --- |
 | 对话、语法讲解、句子拆解 | `gpt-6-astra` | `POST /v1/chat/completions` |
 | 发音评测 | `doubao-seed-2-1-lite-260915` | `POST /v1/chat/completions`，录音转为 16 kHz WAV，以 `input_audio` 发送 |
-| 单词例句 | `doubao-seed-2-1-lite-260915` | `POST /v1/chat/completions` |
+| 单词例句、释义翻译 | `doubao-seed-2-1-lite-260915` | `POST /v1/chat/completions` |
+| 语法课程生成 | `gpt-6-astra` | `POST /v1/chat/completions` |
 
 每个请求携带 `Authorization: Bearer <Virtual Key>` 和 `X-Caller-PSM`。用 `uv run nihongo doctor` 检查配置并逐个测试模型。
 

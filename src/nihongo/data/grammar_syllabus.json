@@ -1,0 +1,548 @@
+[
+ {
+  "id": "wa-desu",
+  "level": "N5",
+  "title": "〜は〜です",
+  "summary": "最基本的判断句：A 是 B"
+ },
+ {
+  "id": "ka",
+  "level": "N5",
+  "title": "〜か（疑问句）",
+  "summary": "句尾加「か」变成疑问句"
+ },
+ {
+  "id": "no",
+  "level": "N5",
+  "title": "〜の〜",
+  "summary": "连接名词，相当于「的」"
+ },
+ {
+  "id": "kosoado",
+  "level": "N5",
+  "title": "これ・それ・あれ・どれ",
+  "summary": "指示代词：近、中、远、疑问"
+ },
+ {
+  "id": "mo",
+  "level": "N5",
+  "title": "〜も",
+  "summary": "「也」：替换「は」表示同样"
+ },
+ {
+  "id": "deshita",
+  "level": "N5",
+  "title": "〜でした／〜じゃありませんでした",
+  "summary": "名词句的过去式"
+ },
+ {
+  "id": "masu",
+  "level": "N5",
+  "title": "动词ます形",
+  "summary": "礼貌体：ます／ません／ました"
+ },
+ {
+  "id": "wo",
+  "level": "N5",
+  "title": "〜を",
+  "summary": "标记动作的宾语"
+ },
+ {
+  "id": "ni-e",
+  "level": "N5",
+  "title": "〜に／〜へ 行きます",
+  "summary": "移动的目的地"
+ },
+ {
+  "id": "de",
+  "level": "N5",
+  "title": "〜で",
+  "summary": "动作的场所和手段"
+ },
+ {
+  "id": "ni-time",
+  "level": "N5",
+  "title": "时间＋に",
+  "summary": "在某个时间点做某事"
+ },
+ {
+  "id": "to",
+  "level": "N5",
+  "title": "〜と（和）",
+  "summary": "名词并列；和某人一起"
+ },
+ {
+  "id": "aru-iru",
+  "level": "N5",
+  "title": "〜に〜があります／います",
+  "summary": "存在句：有某物、某人"
+ },
+ {
+  "id": "adjectives",
+  "level": "N5",
+  "title": "い形容词和な形容词",
+  "summary": "两类形容词的变形"
+ },
+ {
+  "id": "adj-past",
+  "level": "N5",
+  "title": "形容词的过去式",
+  "summary": "〜かったです／〜でした"
+ },
+ {
+  "id": "ga-suki",
+  "level": "N5",
+  "title": "〜が好きです／上手です",
+  "summary": "喜好和擅长的对象用「が」"
+ },
+ {
+  "id": "kara-made",
+  "level": "N5",
+  "title": "〜から〜まで",
+  "summary": "从……到……"
+ },
+ {
+  "id": "mashou",
+  "level": "N5",
+  "title": "〜ましょう／〜ませんか",
+  "summary": "提议和邀请"
+ },
+ {
+  "id": "te-form",
+  "level": "N5",
+  "title": "动词て形",
+  "summary": "て形的变化规则"
+ },
+ {
+  "id": "te-kudasai",
+  "level": "N5",
+  "title": "〜てください",
+  "summary": "礼貌地请求"
+ },
+ {
+  "id": "te-imasu",
+  "level": "N5",
+  "title": "〜ています",
+  "summary": "正在进行或持续状态"
+ },
+ {
+  "id": "te-mo-ii",
+  "level": "N5",
+  "title": "〜てもいいです",
+  "summary": "表示许可"
+ },
+ {
+  "id": "te-wa-ikenai",
+  "level": "N5",
+  "title": "〜てはいけません",
+  "summary": "表示禁止"
+ },
+ {
+  "id": "tai",
+  "level": "N5",
+  "title": "〜たいです",
+  "summary": "表达自己的愿望"
+ },
+ {
+  "id": "nai-form",
+  "level": "N5",
+  "title": "动词ない形",
+  "summary": "动词的否定形"
+ },
+ {
+  "id": "naide-kudasai",
+  "level": "N5",
+  "title": "〜ないでください",
+  "summary": "请不要……"
+ },
+ {
+  "id": "ta-form",
+  "level": "N5",
+  "title": "动词た形",
+  "summary": "动词的过去形（简体）"
+ },
+ {
+  "id": "ta-koto-ga-aru",
+  "level": "N5",
+  "title": "〜たことがあります",
+  "summary": "表示经历"
+ },
+ {
+  "id": "tari",
+  "level": "N5",
+  "title": "〜たり〜たりします",
+  "summary": "列举几个动作"
+ },
+ {
+  "id": "kara-reason",
+  "level": "N5",
+  "title": "〜から（原因）",
+  "summary": "因为……所以……"
+ },
+ {
+  "id": "ga-but",
+  "level": "N5",
+  "title": "〜が（但是）",
+  "summary": "转折连接"
+ },
+ {
+  "id": "counters",
+  "level": "N5",
+  "title": "数量词",
+  "summary": "个、本、枚、人等常用量词"
+ },
+ {
+  "id": "plain-form",
+  "level": "N4",
+  "title": "简体（普通体）",
+  "summary": "朋友之间说话用的简体"
+ },
+ {
+  "id": "to-omou",
+  "level": "N4",
+  "title": "〜と思います",
+  "summary": "表达自己的想法"
+ },
+ {
+  "id": "to-iu",
+  "level": "N4",
+  "title": "〜と言います",
+  "summary": "引用别人说的话"
+ },
+ {
+  "id": "potential",
+  "level": "N4",
+  "title": "可能形",
+  "summary": "会……、能……"
+ },
+ {
+  "id": "koto-ga-dekiru",
+  "level": "N4",
+  "title": "〜ことができます",
+  "summary": "能做某事"
+ },
+ {
+  "id": "tsumori",
+  "level": "N4",
+  "title": "〜つもりです",
+  "summary": "打算做某事"
+ },
+ {
+  "id": "volitional",
+  "level": "N4",
+  "title": "意向形",
+  "summary": "〜よう／〜おう：……吧"
+ },
+ {
+  "id": "you-to-omou",
+  "level": "N4",
+  "title": "〜ようと思っています",
+  "summary": "正在考虑做某事"
+ },
+ {
+  "id": "ba-conditional",
+  "level": "N4",
+  "title": "〜ば",
+  "summary": "假定条件"
+ },
+ {
+  "id": "tara",
+  "level": "N4",
+  "title": "〜たら",
+  "summary": "如果……的话；……之后"
+ },
+ {
+  "id": "to-conditional",
+  "level": "N4",
+  "title": "〜と（条件）",
+  "summary": "一……就……（必然结果）"
+ },
+ {
+  "id": "nara",
+  "level": "N4",
+  "title": "〜なら",
+  "summary": "如果是……的话"
+ },
+ {
+  "id": "te-shimau",
+  "level": "N4",
+  "title": "〜てしまう",
+  "summary": "完了或遗憾"
+ },
+ {
+  "id": "te-oku",
+  "level": "N4",
+  "title": "〜ておく",
+  "summary": "事先做好准备"
+ },
+ {
+  "id": "te-miru",
+  "level": "N4",
+  "title": "〜てみる",
+  "summary": "试着做"
+ },
+ {
+  "id": "te-aru",
+  "level": "N4",
+  "title": "〜てある",
+  "summary": "某人做过后留下的状态"
+ },
+ {
+  "id": "giving",
+  "level": "N4",
+  "title": "あげる・くれる・もらう",
+  "summary": "授受动词"
+ },
+ {
+  "id": "te-giving",
+  "level": "N4",
+  "title": "〜てあげる／〜てくれる／〜てもらう",
+  "summary": "为别人做或别人为自己做"
+ },
+ {
+  "id": "passive",
+  "level": "N4",
+  "title": "被动形",
+  "summary": "被……"
+ },
+ {
+  "id": "causative",
+  "level": "N4",
+  "title": "使役形",
+  "summary": "让……做、使……"
+ },
+ {
+  "id": "sou-looks",
+  "level": "N4",
+  "title": "〜そうです（样态）",
+  "summary": "看起来好像……"
+ },
+ {
+  "id": "sou-hearsay",
+  "level": "N4",
+  "title": "〜そうです（传闻）",
+  "summary": "听说……"
+ },
+ {
+  "id": "you-da",
+  "level": "N4",
+  "title": "〜ようです／〜みたいです",
+  "summary": "好像……（推测）"
+ },
+ {
+  "id": "rashii",
+  "level": "N4",
+  "title": "〜らしい",
+  "summary": "似乎……；像……的样子"
+ },
+ {
+  "id": "hazu",
+  "level": "N4",
+  "title": "〜はずです",
+  "summary": "按理说应该……"
+ },
+ {
+  "id": "kamoshirenai",
+  "level": "N4",
+  "title": "〜かもしれません",
+  "summary": "也许……"
+ },
+ {
+  "id": "noni",
+  "level": "N4",
+  "title": "〜のに",
+  "summary": "明明……却……"
+ },
+ {
+  "id": "node",
+  "level": "N4",
+  "title": "〜ので",
+  "summary": "因为……（客观原因）"
+ },
+ {
+  "id": "nagara",
+  "level": "N4",
+  "title": "〜ながら",
+  "summary": "一边……一边……"
+ },
+ {
+  "id": "tame-ni",
+  "level": "N4",
+  "title": "〜ために",
+  "summary": "为了……；因为……"
+ },
+ {
+  "id": "you-ni",
+  "level": "N4",
+  "title": "〜ように",
+  "summary": "为了能……；希望……"
+ },
+ {
+  "id": "comparison",
+  "level": "N4",
+  "title": "〜より〜のほうが",
+  "summary": "比较句"
+ },
+ {
+  "id": "sugiru",
+  "level": "N4",
+  "title": "〜すぎる",
+  "summary": "过于……"
+ },
+ {
+  "id": "yasui-nikui",
+  "level": "N4",
+  "title": "〜やすい／〜にくい",
+  "summary": "容易……／难以……"
+ },
+ {
+  "id": "keigo-basic",
+  "level": "N4",
+  "title": "敬语入门",
+  "summary": "尊敬语和自谦语的基础"
+ },
+ {
+  "id": "wake",
+  "level": "N3",
+  "title": "〜わけです／〜わけではない",
+  "summary": "当然……／并不是……"
+ },
+ {
+  "id": "ni-totte",
+  "level": "N3",
+  "title": "〜にとって",
+  "summary": "对……来说"
+ },
+ {
+  "id": "ni-tsuite",
+  "level": "N3",
+  "title": "〜について",
+  "summary": "关于……"
+ },
+ {
+  "id": "ni-yotte",
+  "level": "N3",
+  "title": "〜によって",
+  "summary": "根据……；由于……；因……而不同"
+ },
+ {
+  "id": "toshite",
+  "level": "N3",
+  "title": "〜として",
+  "summary": "作为……"
+ },
+ {
+  "id": "bakari",
+  "level": "N3",
+  "title": "〜ばかり",
+  "summary": "光是……；刚刚……"
+ },
+ {
+  "id": "tokoro",
+  "level": "N3",
+  "title": "〜ところだ",
+  "summary": "正要／正在／刚刚"
+ },
+ {
+  "id": "uchi-ni",
+  "level": "N3",
+  "title": "〜うちに",
+  "summary": "趁着……"
+ },
+ {
+  "id": "aida",
+  "level": "N3",
+  "title": "〜間／〜間に",
+  "summary": "在……期间"
+ },
+ {
+  "id": "kawari-ni",
+  "level": "N3",
+  "title": "〜かわりに",
+  "summary": "代替……；作为交换"
+ },
+ {
+  "id": "ba-hodo",
+  "level": "N3",
+  "title": "〜ば〜ほど",
+  "summary": "越……越……"
+ },
+ {
+  "id": "you-ni-naru",
+  "level": "N3",
+  "title": "〜ようになる",
+  "summary": "变得能够……"
+ },
+ {
+  "id": "koto-ni-suru",
+  "level": "N3",
+  "title": "〜ことにする／〜ことになる",
+  "summary": "决定……／定下来……"
+ },
+ {
+  "id": "beki",
+  "level": "N3",
+  "title": "〜べきだ",
+  "summary": "应该……"
+ },
+ {
+  "id": "mono-da",
+  "level": "N3",
+  "title": "〜ものだ",
+  "summary": "本来就是……；感慨"
+ },
+ {
+  "id": "tte",
+  "level": "N3",
+  "title": "〜って",
+  "summary": "口语中的引用和话题"
+ },
+ {
+  "id": "sae",
+  "level": "N3",
+  "title": "〜さえ",
+  "summary": "连……都"
+ },
+ {
+  "id": "shika-nai",
+  "level": "N3",
+  "title": "〜しか〜ない",
+  "summary": "只有……"
+ },
+ {
+  "id": "ni-chigainai",
+  "level": "N3",
+  "title": "〜に違いない",
+  "summary": "一定是……"
+ },
+ {
+  "id": "ppoi",
+  "level": "N3",
+  "title": "〜っぽい",
+  "summary": "有……的感觉"
+ },
+ {
+  "id": "ba-yokatta",
+  "level": "N3",
+  "title": "〜ばよかった",
+  "summary": "要是……就好了（后悔）"
+ },
+ {
+  "id": "te-hoshii",
+  "level": "N3",
+  "title": "〜てほしい",
+  "summary": "希望别人做……"
+ },
+ {
+  "id": "causative-passive",
+  "level": "N3",
+  "title": "使役被动",
+  "summary": "被迫做……"
+ },
+ {
+  "id": "keigo-more",
+  "level": "N3",
+  "title": "敬语进阶",
+  "summary": "常用尊敬语、谦让语动词"
+ }
+]

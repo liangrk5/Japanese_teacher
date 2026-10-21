@@ -84,3 +84,49 @@ def test_settings_update_applies_live(store):
     body = r.json()["settings"]
     assert body["configured"] and body["models"]["chat"] == "m1" and "bogus" not in body["models"]
     assert c.post("/api/settings", json={"base_url": "ftp://x"}).status_code == 400
+
+
+def test_lessons_generate_once_and_cache(settings, store, llm, gateway):
+    gateway.reply = {
+        "title": "〜てください",
+        "explanation": "x",
+        "examples": [{"ja": "見[み]てください。", "zh": "请看。"}],
+        "speaking": [{"ja": "待[ま]ってください。", "zh": "请等一下。"}],
+        "quiz": [],
+    }
+    c = client(settings, store, llm)
+    syllabus = c.get("/api/lessons").json()
+    assert len(syllabus) > 80
+    assert next(p for p in syllabus if p["id"] == "wa-desu")["ready"]  # 内置课程
+    lesson_id = "te-mo-ii"
+    assert c.get(f"/api/lessons/{lesson_id}").json()["lesson"] is None
+    first = c.post(f"/api/lessons/{lesson_id}/generate", json={}).json()
+    assert first["lesson"]["content"]["title"] == "〜てください"
+    calls = len(gateway.requests)
+    c.post(f"/api/lessons/{lesson_id}/generate", json={})
+    assert len(gateway.requests) == calls  # 已缓存
+    c.post(f"/api/lessons/{lesson_id}/generate?force=true", json={})
+    assert len(gateway.requests) == calls + 1
+    sentences = c.get("/api/sentences").json()
+    assert any(s["ja"] == "待[ま]ってください。" for s in sentences)
+
+
+def test_translate_only_untranslated(settings, store, llm, gateway):
+    c = client(settings, store, llm)
+    card = c.get("/api/cards?level=N4&limit=1").json()["items"][0]
+    gateway.reply = {str(card["id"]): "中文释义", "99999999": "x"}
+    r = c.post("/api/cards/translate", json={"ids": [card["id"], 99999999]}).json()
+    assert r == {str(card["id"]): "中文释义"}
+    assert c.post("/api/cards/translate", json={"ids": [card["id"]]}).json() == {}
+
+
+def test_import_word_list(settings, store, llm):
+    c = client(settings, store, llm)
+    text = "#separator:tab\nword\treading\tmeaning\n林檎\tりんご\t<b>苹果</b>\n本棚,书架\n"
+    r = c.post("/api/cards/import", json={"text": text})
+    assert r.json()["imported"] == 1  # 第二行是逗号分隔，按首行的制表符解析被跳过
+    r = c.post("/api/cards/import", json={"text": "本棚,ほんだな,书架\n眼鏡,眼镜"})
+    assert r.json()["imported"] == 2
+    items = c.get("/api/cards?level=user").json()["items"]
+    assert {i["word"]: i["meaning"] for i in items}["林檎"] == "苹果"
+    assert c.post("/api/cards/import", json={"text": "only-one-column"}).status_code == 400

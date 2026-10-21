@@ -344,3 +344,11 @@ code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; 
 pre.code { background: var(--paper-2); padding: 12px 14px; border-radius: 10px; overflow-x: auto; font-size: 13px; line-height: 1.6; }
 [hidden] { display: none !important; }
 ruby + ruby { margin-left: .08em; }
+.structure { display: inline-block; padding: 8px 14px; margin-bottom: 14px; border-radius: 10px; background: var(--ai-soft); color: var(--ai); font-size: 17px; font-weight: 600; }
+.g-item.done .n { color: var(--matcha); }
+.g-item.done .t { color: var(--ink-2); }
+.seg button small { font-size: 11px; }
+@media (min-width: 901px) {
+  .g-layout > div:first-child { position: sticky; top: 24px; }
+  .g-list { max-height: calc(100vh - 110px); overflow-y: auto; padding-right: 4px; }
+}
