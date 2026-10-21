@@ -5,3 +5,5 @@ __pycache__/
 .ruff_cache/
 credentials.env
 *.db
+dist/
+packaging/macos/build/
