@@ -173,7 +173,21 @@ def create_app(
 
     @app.post("/api/doctor")
     def doctor() -> dict[str, Any]:
-        return {"reply": tutor.ping(llm), "models": settings.models}
+        """逐个测试每种用途的模型，告诉用户具体哪个模型不可用。"""
+        results = []
+        tested: dict[str, dict] = {}
+        for role, model in settings.models.items():
+            if model not in tested:
+                try:
+                    tested[model] = {"ok": True, "reply": tutor.ping(llm, role).strip()[:60]}
+                except LLMError as exc:
+                    tested[model] = {"ok": False, "error": str(exc), "code": exc.code}
+            results.append({"role": role, "model": model} | tested[model])
+        return {"results": results, "available": llm.list_models()}
+
+    @app.get("/api/models")
+    def models() -> list[str]:
+        return llm.list_models()
 
     # ---- 假名 ----
     @app.get("/api/kana")

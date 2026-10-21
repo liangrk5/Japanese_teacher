@@ -130,3 +130,43 @@ def test_import_word_list(settings, store, llm):
     items = c.get("/api/cards?level=user").json()["items"]
     assert {i["word"]: i["meaning"] for i in items}["林檎"] == "苹果"
     assert c.post("/api/cards/import", json={"text": "only-one-column"}).status_code == 400
+
+
+def test_doctor_reports_refused_model_per_role(settings, store):
+    import json
+
+    import httpx
+
+    from nihongo.llm import LLMClient
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(200, json={"data": [{"id": "gpt-6-astra"}, {"id": "other-lite"}]})
+        model = json.loads(request.content)["model"]
+        if model == "doubao-seed-2-1-lite-260915":
+            return httpx.Response(
+                403,
+                json={
+                    "error": {
+                        "message": "model not allowed for this key",
+                        "type": "auth_error",
+                        "code": "model_forbidden",
+                    }
+                },
+            )
+        return httpx.Response(200, json={"choices": [{"message": {"content": "こんにちは"}}]})
+
+    llm = LLMClient(settings, transport=httpx.MockTransport(handler))
+    d = client(settings, store, llm).post("/api/doctor").json()
+    by_role = {r["role"]: r for r in d["results"]}
+    assert by_role["chat"]["ok"]
+    assert not by_role["fast"]["ok"] and not by_role["audio"]["ok"]
+    assert "doubao-seed-2-1-lite-260915" in by_role["fast"]["error"]
+    assert by_role["fast"]["code"] == "model_forbidden"
+    assert d["available"] == ["gpt-6-astra", "other-lite"]
+
+    r = client(settings, store, llm).post("/api/cards/1/example")
+    assert (
+        r.status_code == 502
+        and "没有权限使用模型「doubao-seed-2-1-lite-260915」" in r.json()["detail"]
+    )

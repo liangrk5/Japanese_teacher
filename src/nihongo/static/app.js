@@ -903,7 +903,7 @@ async function toWav(blob) {
 }
 
 // ---------- 设置 ----------
-const MODEL_ROLES = { chat: "对话 / 讲解", audio: "发音评测", fast: "例句" };
+const MODEL_ROLES = { chat: "对话 / 讲解", audio: "发音评测", fast: "例句 / 翻译" };
 views.settings = async (el) => {
   const { settings: s } = await loadStatus();
   el.innerHTML = `
@@ -935,14 +935,16 @@ views.settings = async (el) => {
           <dt>X-Caller-PSM</dt><dd>${s.caller ? `<code>${esc(s.caller)}</code>` : "—"}</dd>
           ${Object.entries(s.models).map(([k, v]) => `<dt>${MODEL_ROLES[k] || k}</dt><dd><code>${esc(v)}</code></dd>`).join("")}
         </dl>
-        <div class="row" style="margin-top:16px"><button class="btn" id="doctor" ${s.configured ? "" : "disabled"}>测试连接</button><span id="dres" class="small"></span></div>
+        <div class="row" style="margin-top:16px"><button class="btn" id="doctor" ${s.configured ? "" : "disabled"}>逐个测试模型</button></div>
+        <div id="dres" class="small" style="margin-top:10px"></div>
         <details style="margin-top:18px" ${s.configured ? "" : "open"}>
           <summary style="cursor:pointer;font-weight:700">${s.configured ? "修改连接" : "填写连接信息"}</summary>
           <form id="creds" class="grid" style="gap:12px;margin-top:12px">
             <label class="field">网关地址（OpenAI 兼容）<input class="input" name="base_url" placeholder="https://…" value="${esc(s.base_url)}"></label>
             <label class="field">Virtual Key<input class="input" name="api_key" type="password" autocomplete="off" placeholder="${s.has_api_key ? "已设置，留空则不修改" : "sk-…"}"></label>
             <label class="field">X-Caller-PSM<input class="input" name="caller" value="${esc(s.caller)}"></label>
-            ${Object.entries(s.models).map(([k, v]) => `<label class="field">模型 · ${MODEL_ROLES[k] || k}<input class="input" name="model.${k}" value="${esc(v)}"></label>`).join("")}
+            ${Object.entries(s.models).map(([k, v]) => `<label class="field">模型 · ${MODEL_ROLES[k] || k}<input class="input" name="model.${k}" list="model-list" value="${esc(v)}"></label>`).join("")}
+            <datalist id="model-list"></datalist>
             <p class="muted small" style="margin:0">保存到本机 <code>~/.config/nihongo/credentials.env</code>（仅本人可读）。环境变量里设置的值优先。</p>
             <div><button class="btn primary">保存</button></div>
           </form>
@@ -971,10 +973,20 @@ views.settings = async (el) => {
       views.settings(el);
     } catch (err) { toast(err.message); }
   };
+  const fillModels = (ids) => { $("#model-list").innerHTML = ids.map((m) => `<option value="${esc(m)}">`).join(""); };
+  if (s.configured) api("/api/models").then(fillModels).catch(() => {});
   $("#doctor").onclick = async () => {
-    const r = $("#dres"); r.innerHTML = loading("连接中");
-    try { const d = await api("/api/doctor", { method: "POST" }); r.innerHTML = `<span style="color:var(--matcha)">✓ 连接成功：</span><span class="jp">${esc(d.reply)}</span>`; }
-    catch (err) { r.innerHTML = `<span style="color:var(--shu)">✗ ${esc(err.message)}</span>`; }
+    const r = $("#dres"); r.innerHTML = loading("逐个测试中");
+    try {
+      const d = await api("/api/doctor", { method: "POST" });
+      const bad = d.results.filter((x) => !x.ok);
+      r.innerHTML = `<div class="grid" style="gap:6px">${d.results.map((x) => `<div class="issue">
+          <b style="color:${x.ok ? "var(--matcha)" : "var(--shu)"};font-size:14px">${x.ok ? "✓" : "✗"} ${esc(MODEL_ROLES[x.role] || x.role)}</b><code>${esc(x.model)}</code>
+          <div class="muted small" style="margin-top:4px">${x.ok ? `<span class="jp">${esc(x.reply)}</span>` : esc(x.error)}</div></div>`).join("")}</div>
+        ${bad.length ? `<div class="notice small" style="margin-top:8px">在下面「修改连接」里把打 ✗ 的模型换成这个 Key 能用的模型名，保存后再测一次。${d.available.length ? `网关列出的可用模型：${d.available.map((m) => `<code>${esc(m)}</code>`).join(" ")}` : ""}</div>` : ""}`;
+      if (d.available.length) fillModels(d.available);
+      if (bad.length) $("details").open = true;
+    } catch (err) { r.innerHTML = `<span style="color:var(--shu)">✗ ${esc(err.message)}</span>`; }
   };
 };
 

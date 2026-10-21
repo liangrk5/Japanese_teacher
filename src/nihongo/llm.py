@@ -16,9 +16,22 @@ import httpx
 
 from .config import Settings
 
+ROLE_LABELS = {"chat": "对话 / 讲解", "audio": "发音评测", "fast": "例句 / 翻译"}
+
 
 class LLMError(RuntimeError):
-    pass
+    def __init__(self, message: str, *, model: str = "", code: str = ""):
+        super().__init__(message)
+        self.model = model
+        self.code = code
+
+
+def _error_code(resp: httpx.Response) -> str:
+    try:
+        err = resp.json().get("error", {})
+    except ValueError:
+        return ""
+    return str(err.get("code") or err.get("type") or "") if isinstance(err, dict) else ""
 
 
 class LLMClient:
@@ -52,8 +65,9 @@ class LLMClient:
     ) -> str:
         if not self.settings.configured:
             raise LLMError("模型尚未配置：请设置 NIHONGO_TEXT_BASE_URL 和 NIHONGO_TEXT_API_KEY")
+        model = self.settings.models[role]
         payload = {
-            "model": self.settings.models[role],
+            "model": model,
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
@@ -64,7 +78,20 @@ class LLMClient:
         except httpx.HTTPError as exc:
             raise LLMError(f"无法连接模型网关：{exc}") from exc
         if resp.status_code >= 400:
-            raise LLMError(f"模型网关返回 {resp.status_code}：{resp.text[:300]}")
+            code = _error_code(resp)
+            label = ROLE_LABELS.get(role, role)
+            if code == "model_forbidden" or "model not allowed" in resp.text:
+                raise LLMError(
+                    f"这个 Key 没有权限使用模型「{model}」（用于{label}）。"
+                    "请在「设置 › 模型连接」里换成这个 Key 能用的模型名。",
+                    model=model,
+                    code="model_forbidden",
+                )
+            raise LLMError(
+                f"模型「{model}」（{label}）请求失败，网关返回 {resp.status_code}：{resp.text[:300]}",
+                model=model,
+                code=code,
+            )
         try:
             content = resp.json()["choices"][0]["message"]["content"]
         except (KeyError, IndexError, ValueError) as exc:
@@ -72,6 +99,19 @@ class LLMClient:
         if isinstance(content, list):  # 某些适配器返回内容块列表
             content = "".join(part.get("text", "") for part in content if isinstance(part, dict))
         return content or ""
+
+    def list_models(self) -> list[str]:
+        """尝试读取网关的 GET /v1/models；网关不支持时返回空列表。"""
+        if not self.settings.configured:
+            return []
+        url = self._url().removesuffix("/chat/completions") + "/models"
+        try:
+            with httpx.Client(timeout=15, transport=self._transport) as client:
+                resp = client.get(url, headers=self._headers())
+            data = resp.json().get("data", []) if resp.status_code == 200 else []
+        except (httpx.HTTPError, ValueError, AttributeError):
+            return []
+        return sorted({str(m["id"]) for m in data if isinstance(m, dict) and m.get("id")})
 
     def chat_json(self, messages: list[dict[str, Any]], **kwargs) -> dict[str, Any]:
         return parse_json(self.chat(messages, **kwargs))

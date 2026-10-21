@@ -186,9 +186,7 @@ examples 5 个，由易到难；pitfalls 2–3 条；quiz 4 道，每道 3–4 �
     )
 
 
-def ping(llm: LLMClient) -> str:
+def ping(llm: LLMClient, role: str = "fast") -> str:
     return llm.chat(
-        [{"role": "user", "content": "用一句日语打招呼，只回复这一句。"}],
-        role="fast",
-        max_tokens=50,
+        [{"role": "user", "content": "用一句日语打招呼，只回复这一句。"}], role=role, max_tokens=50
     )
