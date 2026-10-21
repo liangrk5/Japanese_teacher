@@ -1,0 +1,7 @@
+# 复制到 ~/.config/nihongo/config.toml
+timeout = 90.0
+
+[models]
+chat = "gpt-6-astra"                    # AI 老师对话、语法讲解、句子拆解
+audio = "doubao-seed-2-1-lite-260915"   # 发音评测（input_audio）
+fast = "doubao-seed-2-1-lite-260915"    # 单词例句

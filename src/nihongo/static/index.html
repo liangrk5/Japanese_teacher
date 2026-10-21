@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>日语学习助手</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23c8442f'/%3E%3Ctext x='32' y='45' font-size='36' text-anchor='middle' fill='white' font-family='serif'%3Eあ%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app">
+    <nav class="nav" aria-label="主导航">
+      <div class="brand">
+        <span class="brand-mark">あ</span>
+        <span class="brand-text">日语学习助手<small>にほんご</small></span>
+      </div>
+      <a href="#/home" data-view="home"><span class="ico">今</span><span>今日</span></a>
+      <a href="#/kana" data-view="kana"><span class="ico">あ</span><span>假名</span></a>
+      <a href="#/words" data-view="words"><span class="ico">単</span><span>单词</span></a>
+      <a href="#/grammar" data-view="grammar"><span class="ico">文</span><span>语法</span></a>
+      <a href="#/tutor" data-view="tutor"><span class="ico">話</span><span>AI 老师</span></a>
+      <a href="#/speak" data-view="speak"><span class="ico">音</span><span>发音</span></a>
+      <a href="#/settings" data-view="settings" class="nav-settings"><span class="ico">設</span><span>设置</span></a>
+    </nav>
+    <main id="view" class="view" tabindex="-1"></main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/static/app.js" type="module"></script>
+</body>
+</html>
