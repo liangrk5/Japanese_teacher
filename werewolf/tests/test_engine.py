@@ -56,6 +56,22 @@ class GameTest(unittest.TestCase):
         self.assertEqual(game.log.events[-1]["type"], "game_over")
         self.assertTrue(any(e["type"] == "system" for e in game.log.events))
 
+    def test_timeout_falls_back_without_retry(self):
+        from werewolf.llm import LLMError
+
+        calls = []
+
+        class Slow:
+            def chat(self, model, messages, meta=None):
+                calls.append(meta.get("kind") if meta else None)
+                raise LLMError("模型调用超过 60 秒没有返回")
+
+        game = Game(Slow(), Settings(), seed=4, narrator=False)
+        p = game.players[0]
+        r = game.ask(p, "投票", "target", [2, 3])
+        self.assertIn(r["target"], (2, 3))
+        self.assertEqual(len(calls), 1)
+
     def test_replay_embeds_events(self):
         game = play(5)
         html = build_replay(game.log.events)
@@ -88,7 +104,9 @@ class LLMTest(unittest.TestCase):
         self.assertEqual(headers["X-Caller-PSM"], "psm.x")
         self.assertEqual(headers["Authorization"], "Bearer vk")
         self.assertNotIn("temperature", p1)
+        self.assertNotIn("thinking", p1)
         self.assertIn("temperature", sent[1][2])
+        self.assertEqual(sent[1][2]["thinking"], {"type": "disabled"})
 
     def test_rejected_param_is_dropped_and_retried(self):
         calls = []

@@ -233,14 +233,21 @@ class Game:
         # 让观战页知道正在等谁，模型慢的时候不会以为卡住了
         self.emit("thinking", "judge", actor=p.id, kind=kind, model=p.model)
         error = ""
-        for attempt in range(3):
+        raw = ""
+        for attempt in range(2):
             started = time.monotonic()
             try:
                 raw = self.llm.chat(p.model, messages, info)
                 data = parse_json(raw)
-            except (LLMError, ValueError) as exc:
+            except LLMError as exc:
                 error = str(exc)
                 self._trace(p, kind, started, f"失败（第 {attempt + 1} 次）：{error[:200]}")
+                if "秒没有返回" in error:
+                    break  # 超时不再重试，直接由法官代为行动
+                continue
+            except ValueError:
+                error = f"输出不是 JSON：{raw[:120]!r}"
+                self._trace(p, kind, started, f"失败（第 {attempt + 1} 次）：{error}")
                 continue
             self._trace(p, kind, started, "ok")
             if self._valid(data, kind, allowed, allow_none, meta):

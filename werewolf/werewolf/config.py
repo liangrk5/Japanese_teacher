@@ -43,7 +43,10 @@ class Settings:
     # 这些模型只接受默认 temperature，请求里不带这个参数
     no_temperature: set[str] = field(default_factory=lambda: {ASTRA})
     temperature: float = 0.9
-    timeout: float = 120.0
+    # 单次模型调用的上限，超时由法官代为行动，保证对局不会卡死
+    timeout: float = 60.0
+    # 名字里带这些前缀的模型请求时关闭深度思考（豆包 Seed 默认会先长时间推理）
+    no_thinking_prefixes: tuple[str, ...] = ("doubao-seed",)
     concurrency: int = 6
 
     @property
@@ -83,6 +86,8 @@ def load_settings() -> Settings:
         s.player_models = [m.strip() for m in players.split(",") if m.strip()]
     if extra := get("WEREWOLF_NO_TEMPERATURE_MODELS"):
         s.no_temperature |= {m.strip() for m in extra.split(",") if m.strip()}
+    if get("WEREWOLF_KEEP_THINKING").lower() in ("1", "true", "yes"):
+        s.no_thinking_prefixes = ()
     if timeout := get("WEREWOLF_TIMEOUT"):
         s.timeout = float(timeout)
     return s

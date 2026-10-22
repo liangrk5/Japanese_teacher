@@ -23,7 +23,7 @@ class LLMError(RuntimeError):
     pass
 
 
-_OPTIONAL_PARAMS = ("temperature", "max_tokens")
+_OPTIONAL_PARAMS = ("temperature", "max_tokens", "thinking")
 
 
 class PrismClient:
@@ -46,9 +46,11 @@ class PrismClient:
         return headers
 
     def chat(self, model: str, messages: list[dict], meta: dict | None = None) -> str:
-        payload: dict[str, Any] = {"model": model, "messages": messages, "max_tokens": 1200}
+        payload: dict[str, Any] = {"model": model, "messages": messages, "max_tokens": 2000}
         if model not in self.settings.no_temperature:
             payload["temperature"] = self.settings.temperature
+        if model.startswith(self.settings.no_thinking_prefixes):
+            payload["thinking"] = {"type": "disabled"}
         with self._lock:
             skip = set(self._unsupported.get(model, ()))
         for name in skip:
@@ -65,11 +67,14 @@ class PrismClient:
         if status >= 400:
             raise LLMError(f"模型「{model}」请求失败（{status}）：{body[:200]}")
         try:
-            content = json.loads(body)["choices"][0]["message"].get("content")
-        except (KeyError, IndexError, ValueError, AttributeError) as exc:
+            choice = json.loads(body)["choices"][0]
+            content = choice["message"].get("content")
+        except (KeyError, IndexError, ValueError, AttributeError, TypeError) as exc:
             raise LLMError(f"模型「{model}」的返回无法解析：{body[:200]}") from exc
         if isinstance(content, list):
             content = "".join(p.get("text", "") for p in content if isinstance(p, dict))
+        if not content and choice.get("finish_reason") == "length":
+            raise LLMError(f"模型「{model}」在输出前就用完了长度上限（推理消耗了全部 token）")
         return content or ""
 
     def _post(self, payload: dict) -> tuple[int, str]:
@@ -81,7 +86,9 @@ class PrismClient:
                 return resp.status, resp.read().decode("utf-8", "replace")
         except urllib.error.HTTPError as exc:
             return exc.code, exc.read().decode("utf-8", "replace")
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        except (TimeoutError, OSError) as exc:
+            if "timed out" in str(exc):
+                raise LLMError(f"模型调用超过 {self.settings.timeout:.0f} 秒没有返回") from exc
             raise LLMError(f"无法连接网关：{exc}") from exc
 
 
@@ -89,7 +96,7 @@ def _rejected_param(status: int, body: str, payload: dict) -> str:
     if status < 400:
         return ""
     text = body.lower()
-    if not any(k in text for k in ("unsupported", "not support", "not allowed", "only the default")):
+    if not any(k in text for k in ("unsupported", "not support", "not allowed", "only the default", "unknown", "unrecognized", "extra")):
         return ""
     for name in _OPTIONAL_PARAMS:
         if name in payload and name in text:
