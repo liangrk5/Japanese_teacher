@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>找出人类</title>
+<link rel="stylesheet" href="static/style.css">
+</head>
+<body class="lobby">
+<header class="topbar">
+  <div class="brand"><span class="logo">◎</span>找出人类 <small>REVERSE TURING</small></div>
+  <div class="badge" id="badge">大厅</div>
+  <div class="controls">
+    <label class="chk game-only" id="thoughtsToggle" hidden><input type="checkbox" id="showThoughts"> 显示 AI 内心</label>
+    <button class="game-only live-only" id="abortBtn">中止本局</button>
+    <a class="btn ended-only live-only" id="replayBtn" href="/api/replay">下载复盘</a>
+    <button class="ended-only live-only" id="againBtn">再来一局</button>
+  </div>
+</header>
+
+<main>
+  <aside id="seats"></aside>
+  <section id="room">
+    <div id="feed"></div>
+    <div id="composer">
+      <div class="prompt"><span id="promptText">等待开局…</span><span id="timer"></span></div>
+      <div class="row">
+        <textarea id="input" rows="2" placeholder="" disabled></textarea>
+        <button class="primary" id="sendBtn" disabled>发送</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="overlay" id="lobby">
+  <div class="card lobby-card">
+    <div class="hero-logo">◎</div>
+    <h1>找出人类</h1>
+    <p class="tag">一群 AI，混进了一个人。</p>
+    <ul class="rules">
+      <li>聊天室里只有你一个真人，其余全是 AI。每轮主持人出一道题，大家同时作答，再轮流发言一次。</li>
+      <li>每轮结束全员投票“谁是人类”，票最多的人出局并公开身份。平票的话，其他人在平票者之间重投一次。</li>
+      <li>你要假装自己也是 AI。撑过全部轮次你赢，被投出去 AI 赢。</li>
+    </ul>
+    <div class="opts">
+      <div class="opt"><span>模式</span>
+        <div class="seg" id="modeSeg"><button data-v="play" class="on">亲自上场</button><button data-v="watch">观战：AI 扮演卧底</button></div>
+      </div>
+      <div class="opt"><span>语言</span>
+        <div class="seg" id="langSeg"><button data-v="zh" class="on">中文</button><button data-v="ja">日本語</button></div>
+      </div>
+      <div class="opt"><span>AI 数量</span>
+        <div class="seg" id="aiSeg"><button data-v="3">3</button><button data-v="4">4</button><button data-v="5" class="on">5</button><button data-v="6">6</button><button data-v="7">7</button></div>
+      </div>
+      <div class="opt"><span>轮数</span>
+        <div class="seg" id="roundSeg"><button data-v="2">2</button><button data-v="3" class="on">3</button><button data-v="4">4</button></div>
+      </div>
+      <label class="chk" id="mockWrap"><input type="checkbox" id="mock"> 模拟模式（不连网关）</label>
+    </div>
+    <p class="notice" id="notice" hidden></p>
+    <button class="primary big" id="startBtn">开始</button>
+    <div id="board"></div>
+  </div>
+</div>
+
+<div class="overlay" id="result" hidden>
+  <div class="card result-card">
+    <div id="resultBody"></div>
+    <div class="actions">
+      <button id="closeResult">查看完整对话和 AI 内心</button>
+      <a class="btn live-only" href="/api/replay">下载复盘</a>
+      <button class="primary live-only" id="againBtn2">再来一局</button>
+    </div>
+  </div>
+</div>
+
+<script src="static/app.js"></script>
+</body>
+</html>
