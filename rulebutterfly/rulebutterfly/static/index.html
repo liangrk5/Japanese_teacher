@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>只改一条规则</title>
+<link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+<div id="stage"></div>
+<div id="labels"></div>
+
+<header id="topbar">
+  <div class="brand">
+    <span class="logo">🦋</span>
+    <div>
+      <div class="title">只改一条规则</div>
+      <div class="sub" id="scenario-line">AI 小镇蝴蝶效应</div>
+    </div>
+  </div>
+  <div class="stats">
+    <div class="stat"><span class="k">天数</span><span class="v" id="st-day">0</span></div>
+    <div class="stat"><span class="k">镇长支持率</span><span class="v" id="st-approval">–</span></div>
+    <div class="stat"><span class="k">镇财政</span><span class="v" id="st-treasury">–</span></div>
+    <div class="stat"><span class="k">罢工</span><span class="v" id="st-strikes">0</span></div>
+  </div>
+  <div class="goal" id="goal-box">
+    <div class="goal-title" id="goal-title">任务</div>
+    <div class="goal-text" id="goal-text">选择一个任务开始</div>
+    <div class="goal-progress" id="goal-progress"></div>
+  </div>
+  <div class="top-actions">
+    <span class="models" id="models"></span>
+    <button class="ghost" id="btn-replay" title="下载单文件复盘">复盘</button>
+    <button class="ghost" id="btn-new">新开一局</button>
+  </div>
+</header>
+
+<aside id="left" class="panel">
+  <section>
+    <h2>小镇现行规则 <span class="muted" id="rule-count"></span></h2>
+    <ol id="rules"></ol>
+  </section>
+  <section id="editor">
+    <h2 id="editor-title">今晚，你可以改一条规则</h2>
+    <div class="mode" id="editor-mode">新增一条规则</div>
+    <textarea id="rule-text" rows="3" maxlength="120" placeholder="例如：从明天开始，所有人的工资公开。"></textarea>
+    <div class="chips" id="suggestions"></div>
+    <div class="row">
+      <button class="primary" id="btn-enact">颁布并迎来第 1 天</button>
+      <button class="ghost" id="btn-skip">不改，直接过一天</button>
+    </div>
+    <div class="hint" id="editor-hint"></div>
+  </section>
+  <section id="notice" class="hidden">
+    <h2>📜 最新公告</h2>
+    <div id="notice-body"></div>
+  </section>
+</aside>
+
+<aside id="right" class="panel">
+  <nav class="tabs">
+    <button data-tab="news" class="on">日报</button>
+    <button data-tab="people">居民</button>
+    <button data-tab="backstage">内心</button>
+    <button data-tab="ledger">账本</button>
+  </nav>
+  <div class="tab" id="tab-news"><div class="empty">新闻会在第 1 天结束后出现。</div></div>
+  <div class="tab hidden" id="tab-people"></div>
+  <div class="tab hidden" id="tab-backstage"><div class="empty">这里能看到每个人真实的想法和私下传话（只有你看得到）。</div></div>
+  <div class="tab hidden" id="tab-ledger"><div class="empty">每天的工资、房租和生活费结算。</div></div>
+</aside>
+
+<div id="ticker" class="hidden"><span class="spinner"></span><span id="ticker-text"></span></div>
+<div id="days"></div>
+<div id="toast" class="hidden"></div>
+
+<div id="inspector" class="panel hidden">
+  <button class="close" id="insp-close">×</button>
+  <div id="insp-body"></div>
+</div>
+
+<div id="view-controls">
+  <button id="btn-rel" class="ghost" title="显示所有强关系">关系网</button>
+  <button id="btn-cam" class="ghost" title="回到全景">全景</button>
+</div>
+
+<div id="replay-bar" class="hidden">
+  <button id="rp-play" class="primary">▶ 播放</button>
+  <button id="rp-speed" class="ghost">1×</button>
+  <button id="rp-end" class="ghost">跳到结局</button>
+  <span id="rp-pos" class="muted"></span>
+</div>
+
+<div id="modal-start" class="modal hidden">
+  <div class="card wide">
+    <div class="hero">🦋</div>
+    <h1>只改一条规则</h1>
+    <p class="lead">小镇里住着镇长、老板、房东、员工、医生、记者和面包师。他们各有钱、关系、秘密和目标。
+      每天晚上你只能改一条规则，然后看他们怎么适应、钻空子、结盟和反击。</p>
+    <div class="scenarios" id="scenarios"></div>
+    <label class="check"><input type="checkbox" id="opt-mock"> 用假模型演示（不连网关，秒出结果）</label>
+    <div class="row center"><button class="primary big" id="btn-start">进入小镇</button></div>
+    <p class="fine" id="disclaimer">这是一个虚构的模拟游戏，人物和事件都是虚构的，不代表对真实社会的预测。</p>
+  </div>
+</div>
+
+<div id="modal-end" class="modal hidden">
+  <div class="card share">
+    <div class="badge" id="end-badge"></div>
+    <blockquote id="end-share"></blockquote>
+    <p id="end-story"></p>
+    <div class="end-meta" id="end-meta"></div>
+    <div class="row center">
+      <button class="primary" id="btn-copy">复制战报</button>
+      <button class="ghost" id="btn-end-replay">下载复盘</button>
+      <button class="ghost" id="btn-end-close">回小镇看看</button>
+      <button class="ghost" id="btn-end-new">再来一局</button>
+    </div>
+    <p class="fine">游戏里的结果是虚构的，不代表真实社会预测。</p>
+  </div>
+</div>
+
+<script src="static/app.js"></script>
+</body>
+</html>
