@@ -11,7 +11,9 @@
 from __future__ import annotations
 
 import random
+import sys
 import threading
+import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -228,13 +230,19 @@ class Game:
             "player": {"id": p.id, "role": p.role},
             **meta,
         }
+        # 让观战页知道正在等谁，模型慢的时候不会以为卡住了
+        self.emit("thinking", "judge", actor=p.id, kind=kind, model=p.model)
         error = ""
-        for _ in range(3):
+        for attempt in range(3):
+            started = time.monotonic()
             try:
-                data = parse_json(self.llm.chat(p.model, messages, info))
+                raw = self.llm.chat(p.model, messages, info)
+                data = parse_json(raw)
             except (LLMError, ValueError) as exc:
                 error = str(exc)
+                self._trace(p, kind, started, f"失败（第 {attempt + 1} 次）：{error[:200]}")
                 continue
+            self._trace(p, kind, started, "ok")
             if self._valid(data, kind, allowed, allow_none, meta):
                 data["thought"] = str(data.get("thought") or "")[:400]
                 return data
@@ -246,6 +254,12 @@ class Game:
         if kind == "target":
             return {"thought": "（掉线）", "target": self.rng.choice(allowed) if allowed else 0}
         return {"thought": "（掉线）", "speech": "我……网络有点卡，先过吧。"}
+
+    @staticmethod
+    def _trace(p: Player, kind: str, started: float, result: str) -> None:
+        elapsed = time.monotonic() - started
+        print(f"[{time.strftime('%H:%M:%S')}] {p.label()} {kind} {p.model} {elapsed:.1f}s {result}",
+              file=sys.stderr, flush=True)
 
     @staticmethod
     def _valid(data: dict, kind: str, allowed, allow_none, meta) -> bool:
@@ -283,6 +297,7 @@ class Game:
     def narrate(self, facts: str) -> None:
         text = facts
         if self.narrator:
+            self.emit("thinking", "judge", actor=0, kind="narrate", model=self.settings.judge_model)
             try:
                 text = self.llm.chat(
                     self.settings.judge_model,

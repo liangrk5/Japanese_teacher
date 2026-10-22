@@ -165,6 +165,10 @@ body.night .seat:not(.awake) .avatar::before { content: "z"; position: absolute;
 .judge { display: flex; align-items: center; gap: 6px; color: var(--judge); font-weight: 700; letter-spacing: 2px; }
 .gavel { font-size: 26px; filter: drop-shadow(0 0 10px rgba(196,155,255,.7)); }
 #narration { font-size: 15px; color: #e7dcff; min-height: 2.6em; font-style: italic; }
+#waiting { font-size: 13px; color: var(--muted); }
+#waiting::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%; border: 2px solid var(--gold); border-right-color: transparent; vertical-align: -1px; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.seat.thinking .avatar { box-shadow: 0 0 0 3px var(--gold), 0 0 0 7px rgba(255,211,107,.25); animation: breathe 1.2s ease-in-out infinite; }
 #speaker {
   width: 100%; flex: 1; min-height: 0; overflow-y: auto; text-align: left; padding: 10px 14px; border-radius: 14px;
   background: rgba(255,255,255,.06); border: 1px solid var(--line); backdrop-filter: blur(6px); animation: rise .35s;

@@ -53,6 +53,7 @@
     $("#seats").innerHTML = ""; $("#arrows").innerHTML = ""; $("#log").innerHTML = "";
     $("#banner").innerHTML = ""; $("#summary").classList.add("hidden"); $("#speaker").classList.add("hidden");
     $("#narration").textContent = "等待法官开局……";
+    clearThinking();
     $("#phaseBadge").textContent = "等待开局";
     document.body.classList.remove("night", "ended"); document.body.classList.add("day");
   }
@@ -145,7 +146,41 @@
   $("#filterChip").addEventListener("click", () => setFilter(null));
 
   // ---------------------------------------------------------- handlers
+  // 正在等模型回复的玩家：只在队列播完、确实在等后端时显示
+  const KIND_WAIT = { speech: "组织发言", pk: "准备 PK 发言", last_words: "留遗言", wolf_chat: "和狼队友密谈", target: "做决定", witch: "考虑用药", narrate: "组织语言" };
+  let waitTimer = null;
+  function clearThinking() {
+    clearInterval(waitTimer); waitTimer = null;
+    $("#waiting").classList.add("hidden");
+    document.querySelectorAll(".seat.thinking").forEach((s) => s.classList.remove("thinking"));
+  }
+  function showThinking(ev) {
+    if (S.instant) return;
+    const p = ev.actor ? S.players[ev.actor] : { id: 0, name: "法官" };
+    if (!p) return;
+    const night = ev.kind !== "speech" && ev.kind !== "pk" && ev.kind !== "last_words" && document.body.classList.contains("night");
+    const hide = S.view === "village" && (night || ev.kind === "wolf_chat");
+    if (!hide && ev.actor) seatEl(ev.actor).classList.add("thinking");
+    const started = Date.now();
+    const who = hide ? "有人" : ev.actor ? `${p.id}号${p.name}` : "法官";
+    const render = () => {
+      const sec = Math.round((Date.now() - started) / 1000);
+      $("#waiting").textContent = `${who}正在${KIND_WAIT[ev.kind] || "思考"}…${sec >= 3 ? ` ${sec}s` : ""}`;
+    };
+    render();
+    $("#waiting").classList.remove("hidden");
+    clearInterval(waitTimer);
+    waitTimer = setInterval(render, 1000);
+  }
+
   const H = {
+    async thinking(ev) {
+      // 后面已经有事件排队时说明回复早到了，不用显示
+      if (S.idx + 1 < S.queue.length) return;
+      clearThinking();
+      showThinking(ev);
+    },
+
     async game_start(ev) {
       resetBoard();
       buildSeats(ev.players);
@@ -327,6 +362,7 @@
   }
 
   async function handle(ev) {
+    if (ev.type !== "thinking") clearThinking();
     const fn = H[ev.type];
     if (fn) await fn(ev);
   }
