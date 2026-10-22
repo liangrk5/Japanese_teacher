@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 狼人杀</title>
+<link rel="stylesheet" href="static/style.css">
+</head>
+<body class="day god">
+<header class="topbar">
+  <div class="brand"><span class="logo">🐺</span> AI 狼人杀 <span id="phaseBadge" class="badge">等待开局</span></div>
+  <div id="legend" class="legend"></div>
+  <div class="controls">
+    <span class="live-only">
+      <label class="chk" title="不连模型网关，用假数据快速演示"><input type="checkbox" id="mockChk"> 模拟模式</label>
+      <button id="startBtn" class="primary">开始新局</button>
+    </span>
+    <div class="seg" id="viewSeg">
+      <button data-view="god" class="on" title="看到所有身份、夜间行动和内心独白">上帝视角</button>
+      <button data-view="village" title="只看到公开信息，像一个普通村民">村民视角</button>
+    </div>
+    <select id="speedSel" title="播放速度">
+      <option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option>
+      <option value="2">2×</option><option value="3">3×</option><option value="5">5×</option>
+    </select>
+    <button id="pauseBtn" title="暂停 / 继续">⏸</button>
+    <a id="exportBtn" class="btn live-only" href="api/replay" title="下载可离线回放的 HTML 复盘">下载复盘</a>
+  </div>
+</header>
+
+<main>
+  <section id="stage">
+    <div id="sky">
+      <div class="stars"></div><div class="stars s2"></div>
+      <div class="moon"></div><div class="sun"></div>
+      <div class="fog"></div>
+    </div>
+    <div id="table">
+      <div class="felt"></div>
+      <svg id="fx" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <defs>
+          <marker id="headVote" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#ffd36b"/></marker>
+          <marker id="headWolf" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#ff4d5e"/></marker>
+        </defs>
+        <g id="arrows"></g>
+      </svg>
+      <div id="seats"></div>
+      <div id="center">
+        <div class="judge"><span class="gavel">⚖️</span><span class="judge-name">法官</span></div>
+        <div id="narration">点击「开始新局」，12 位 AI 玩家将入座。</div>
+        <div id="waiting" class="hidden"></div>
+        <div id="speaker" class="hidden">
+          <div class="sp-head"><span class="sp-avatar"></span><span class="sp-name"></span><span class="sp-kind"></span></div>
+          <div class="sp-text"></div>
+          <div class="sp-thought god-only"></div>
+        </div>
+        <div id="summary" class="hidden"></div>
+      </div>
+    </div>
+    <div id="banner"></div>
+  </section>
+  <aside id="side">
+    <div class="side-head">战报 <span id="filterChip" class="chip hidden"></span></div>
+    <div id="log"></div>
+  </aside>
+</main>
+
+<footer id="timeline" class="hidden">
+  <button id="tlPlay">⏸</button>
+  <input id="tlRange" type="range" min="0" max="0" value="0">
+  <span id="tlCount">0 / 0</span>
+</footer>
+<script src="static/app.js"></script>
+</body>
+</html>
