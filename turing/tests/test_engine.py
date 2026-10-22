@@ -9,7 +9,7 @@ from turing.config import ASTRA, SEED, Settings
 from turing.engine import Game, HumanInbox
 from turing.llm import LLMError, MockLLM, parse_json
 from turing.replay import build_replay
-from turing.server import aggregate
+from turing.server import aggregate, bind
 
 
 class Bot:
@@ -172,6 +172,20 @@ class GameTest(unittest.TestCase):
         html = build_replay(game.log.events)
         self.assertIn("window.REPLAY", html)
         self.assertNotIn('src="static/app.js"', html)
+
+
+class BindTest(unittest.TestCase):
+    def test_busy_port_falls_back(self):
+        from http.server import BaseHTTPRequestHandler
+
+        first = bind(0, BaseHTTPRequestHandler)
+        port = first.server_address[1]
+        second = bind(port, BaseHTTPRequestHandler)
+        try:
+            self.assertNotEqual(second.server_address[1], port)
+        finally:
+            first.server_close()
+            second.server_close()
 
 
 class ParseTest(unittest.TestCase):

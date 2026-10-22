@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import errno
 import json
 import threading
 import webbrowser
@@ -224,6 +225,17 @@ def make_handler(state: State):
     return Handler
 
 
+def bind(port: int, handler, tries: int = 20) -> ThreadingHTTPServer:
+    """端口被占用（比如上一次没关掉）时依次往后找一个空闲端口。"""
+    for p in range(port, port + tries):
+        try:
+            return ThreadingHTTPServer(("127.0.0.1", p), handler)
+        except OSError as exc:
+            if exc.errno not in (errno.EADDRINUSE, errno.EACCES):
+                raise
+    return ThreadingHTTPServer(("127.0.0.1", 0), handler)
+
+
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description="反向图灵：找出人类")
     ap.add_argument("--port", type=int, default=8766)
@@ -234,9 +246,12 @@ def main(argv: list[str] | None = None) -> None:
     args = ap.parse_args(argv)
 
     state = State(Path(args.replays), args.mock)
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(state))
+    server = bind(args.port, make_handler(state))
     server.daemon_threads = True
-    url = f"http://127.0.0.1:{args.port}/"
+    port = server.server_address[1]
+    if port != args.port:
+        print(f"端口 {args.port} 已被占用，改用 {port}")
+    url = f"http://127.0.0.1:{port}/"
     mode = "mock 模式" if state.mock_only else f"网关 {state.settings.base_url}"
     print(f"找出人类：{url}（{mode}），复盘和战绩保存在 {args.replays}")
 
